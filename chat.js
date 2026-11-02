@@ -1,108 +1,117 @@
-import { randomBytes } from 'node:crypto';
+export const maxDuration = 300;
 
-export const maxDuration = 30;
+const PRIMARY_TIMEOUT  = 120000;
+const FALLBACK_TIMEOUT = 60000;
+const MAX_RETRIES      = 3;
+const MAX_HISTORY      = 20;
 
-const hex = (n) => randomBytes(n).toString('hex');
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-function newMessageId() {
-  const timeLow = hex(4);
-  const timeMid = hex(2);
-  const timeHi = '4' + hex(2).slice(1);
-  const clock = (8 + Math.floor(Math.random() * 4)).toString(16) + hex(2).slice(1);
-  const node = hex(6);
-  return `${timeLow}-${timeMid}-${timeHi}-${clock}-${node}`;
+function buildMessages(message, history) {
+  const messages = [{
+    role: 'system',
+    content: 'You are Lucky AI, a helpful assistant like ChatGPT. You remember the entire conversation. Use Markdown formatting: **bold**, `code`, ```code blocks```, lists, tables, headers. Respond in the same language the user uses.'
+  }];
+
+  if (Array.isArray(history) && history.length > 0) {
+    for (const h of history.slice(-MAX_HISTORY)) {
+      if (h.role === 'user' && h.text)
+        messages.push({ role: 'user', content: h.text });
+      else if (h.role === 'bot' && h.text)
+        messages.push({ role: 'assistant', content: h.text });
+    }
+  }
+
+  messages.push({ role: 'user', content: message });
+  return messages;
 }
 
-function buildPayload(message, files = []) {
-  const textFiles  = files.filter(f => f.type === 'text');
-  const imageFiles = files.filter(f => f.type === 'image');
+// ─── Pollinations ───
+async function callPollinations(messages, model = 'openai') {
+  const res = await fetch('https://text.pollinations.ai/openai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: model || 'openai',
+      messages,
+      max_tokens: 2048,
+    }),
+    signal: AbortSignal.timeout(PRIMARY_TIMEOUT),
+  });
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content || '';
+}
 
-  // text file တွေကို message ထဲ ထည့်
-  let fullText = message;
-  if (textFiles.length) {
-    fullText += textFiles.map(f =>
-      `\n\n--- 📄 ${f.name} ---\n${f.content}\n--- End of ${f.name} ---`
-    ).join('');
+// ─── Groq ───
+async function callGroq(messages) {
+  const token = process.env.GROQ_API_KEY;
+  if (!token) return '';
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + token,
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages,
+      max_tokens: 2048,
+    }),
+    signal: AbortSignal.timeout(FALLBACK_TIMEOUT),
+  });
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content || '';
+}
+
+// ─── HuggingFace ───
+async function callHuggingFace(messages) {
+  const token = process.env.HF_TOKEN;
+  if (!token) return '';
+  let prompt = '';
+  for (const m of messages) {
+    if (m.role === 'system') continue;
+    prompt += (m.role === 'user' ? '[INST] ' : '</s>[INST] ') + m.content;
   }
-
-  // image ပါရင် multimodal, မပါရင် plain text
-  let content;
-  if (imageFiles.length) {
-    const parts = [{ content_type: 'text', text: fullText }];
-    for (const img of imageFiles) {
-      parts.push({ content_type: 'image_url', image_url: { url: img.content } });
-    }
-    content = { parts, content_type: 'multimodal_text' };
-  } else {
-    content = { parts: [fullText], content_type: 'text' };
-  }
-
-  return {
-    action: 'next',
-    messages: [{
-      id: newMessageId(),
-      author: { role: 'user' },
-      content,
-      status: 'finished_successfully',
-      recipient: 'all',
-      metadata: {
-        is_visually_hidden_from_conversation: false,
-        exclude_after_next_user_message: false,
-        content_references: [],
-        search_result_groups: [],
-        search_queries: [],
-        image_results: [],
-        real_time_audio_has_video: false,
-        dictation: false,
-        image_gen_async: false,
-        trigger_async_ux: false,
-        writing_blocks: {},
+  prompt += '</s>';
+  const res = await fetch(
+    'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
       },
-    }],
-    model: 'auto',
-    history_and_training_disabled: false,
-    fork_from_shared_post: false,
-    enable_message_followups: false,
-    force_use_sse: true,
-    force_use_search: null,
-    force_paragen: false,
-    supported_encodings: ['v1'],
-    supports_buffering: true,
-    timezone: 'Asia/Ho_Chi_Minh',
-    timezone_offset_min: -420,
-    system_hints: [],
-    is_onboarding_conversation: false,
-    stream: true,
-  };
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: { max_new_tokens: 1024, return_full_text: false },
+      }),
+      signal: AbortSignal.timeout(FALLBACK_TIMEOUT),
+    }
+  );
+  const data = await res.json();
+  if (Array.isArray(data)) return data[0]?.generated_text || '';
+  return data?.generated_text || '';
 }
 
-function parseSSE(raw) {
-  let text = '';
-  const lines = (raw || '').split('\n');
+async function callAI(messages, model) {
+  const providers = [
+    { name: 'Pollinations', fn: () => callPollinations(messages, model) },
+    { name: 'Groq',         fn: () => callGroq(messages) },
+    { name: 'HuggingFace',  fn: () => callHuggingFace(messages) },
+  ];
 
-  for (const line0 of lines) {
-    const line = line0.trim();
-    if (!line.startsWith('data:')) continue;
-
-    let data;
-    try { data = JSON.parse(line.slice(5).trim()); } catch { continue; }
-    if (data === null || typeof data !== 'object') continue;
-
-    if (Array.isArray(data.v) && data.v[0] !== undefined) {
-      for (const patch of data.v) {
-        if (patch && patch.p === '/message/content/parts/0' &&
-            patch.o === 'append' && typeof patch.v === 'string') {
-          text += patch.v;
-        }
+  for (const provider of providers) {
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const text = await provider.fn();
+        if (text) return text;
+      } catch (err) {
+        console.log(`[${provider.name}] attempt ${attempt}: ${err?.message}`);
       }
-    }
-
-    const part = data.v?.message?.content?.parts?.[0];
-    if (text === '' && data.v?.message?.author?.role === 'assistant' && typeof part === 'string') {
-      text = part;
+      if (attempt < MAX_RETRIES) await sleep(1500 * attempt);
     }
   }
-  return text.trim();
+  return null;
 }
 
 export default async function handler(req, res) {
@@ -111,59 +120,54 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
 
-  const body  = req.method === 'POST' ? (req.body || {}) : (req.query || {});
+  const body    = req.method === 'POST' ? (req.body || {}) : (req.query || {});
   const message = (body.message ?? '').toString().trim();
   const files   = Array.isArray(body.files) ? body.files : [];
+  const history = Array.isArray(body.history) ? body.history : [];
+  const model   = (body.model ?? 'openai').toString();
 
   if (!message && files.length === 0) {
     res.status(400).json({ error: 'message လိုအပ်ပါတယ်' });
     return;
   }
 
-  const effectiveMessage = message || 'Please analyze the attached file(s).';
+  let fullText = message || 'Please analyze the attached file(s).';
+  const textFiles  = files.filter(f => f.type === 'text');
+  const imageFiles = files.filter(f => f.type === 'image');
 
-  const cookie = [
-    `__cflb=${hex(20)}`, `__cfuvid=${hex(24)}`,
-    `oai-sc=${hex(64)}`, `__cf_bm=${hex(48)}`,
-  ].join('; ');
+  for (const f of textFiles) {
+    const MAX_PER_FILE = 8000;
+    const content = f.content.length > MAX_PER_FILE
+      ? f.content.slice(0, MAX_PER_FILE) + '\n... [truncated]'
+      : f.content;
+    fullText += `\n\n--- 📄 ${f.name} ---\n${content}\n--- End of ${f.name} ---`;
+  }
 
-  const headers = {
-    'User-Agent': 'ChatGPT/1.2027.000 (Android 12; SM-F741N; build 27230000)',
-    'Accept': 'text/event-stream,application/json',
-    'Content-Type': 'application/json',
-    'oai-device-id': hex(10),
-    'Cookie': cookie,
-  };
+  if (imageFiles.length) {
+    fullText += `\n\n[${imageFiles.length} image(s): ${imageFiles.map(i => i.name).join(', ')}]`;
+  }
+
+  if (fullText.length > 30000) {
+    fullText = fullText.slice(0, 30000) + '\n... [truncated]';
+  }
+
+  const messages = buildMessages(fullText, history);
 
   try {
-    const upstream = await fetch(
-      'https://android.chat.openai.com/backend-api/f/conversation',
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(buildPayload(effectiveMessage, files)),
-        signal: AbortSignal.timeout(30000),
-      }
-    );
-
-    const raw = await upstream.text();
-    const text = parseSSE(raw);
-
+    const text = await callAI(messages, model);
     if (!text) {
-      res.status(502).json({
-        error: 'Upstream response ကနေ text မရရှိပါ',
-        upstreamStatus: upstream.status,
-      });
+      res.status(502).json({ error: 'AI response မရပါ — ခဏစောင့်ပြီး ထပ်ကြိုးစားပါ' });
       return;
     }
-
     res.status(200).json({
       'by -> ': '@aantik_mods',
-      message: effectiveMessage,
+      message,
       response: text,
+      model,
       hasFiles: files.length > 0,
+      historySize: history.length,
     });
   } catch (err) {
-    res.status(500).json({ error: err?.message || 'Request failed' });
+    res.status(500).json({ error: err?.message || 'Server error' });
   }
 }

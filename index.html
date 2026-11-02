@@ -7,6 +7,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Markdown -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<!-- Syntax Highlighting -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <style>
   :root{
     --green:#58cc02; --green-d:#2e9e00; --green-l:#93e619;
@@ -17,13 +22,10 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
-  body{
-    font-family:'Inter',system-ui,sans-serif;color:var(--ink);
+  body{font-family:'Inter',system-ui,sans-serif;color:var(--ink);
     background:linear-gradient(160deg,#f2ffe9 0%,#ffffff 45%,#eaffde 100%);
-    min-height:100vh;overflow-x:hidden;
-  }
+    min-height:100vh;overflow-x:hidden}
 
-  /* ===== Background ===== */
   .blob{position:fixed;border-radius:50%;filter:blur(70px);opacity:.55;z-index:0;
     animation:blobMove 16s ease-in-out infinite alternate;pointer-events:none}
   .b1{width:430px;height:430px;background:#9ff05a;top:-140px;left:-120px}
@@ -35,11 +37,10 @@
   .particle svg{width:100%;height:100%;display:block}
   @keyframes fall{from{transform:translateY(0) rotate(0)}to{transform:translateY(110vh) rotate(400deg)}}
 
-  /* ===== Layout ===== */
   .app{display:flex;min-height:100vh;position:relative;z-index:2}
   .main{flex:1;min-width:0;display:flex;flex-direction:column}
 
-  /* ===== Sidebar ===== */
+  /* Sidebar */
   .sidebar{width:var(--side);flex:0 0 var(--side);height:100vh;position:sticky;top:0;
     background:rgba(255,255,255,.8);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
     border-right:1px solid rgba(255,255,255,.9);
@@ -56,15 +57,12 @@
   @keyframes shine{to{background-position:200% center}}
   .side-close{display:none;margin-left:auto;border:none;background:#eef8e6;width:32px;height:32px;
     border-radius:10px;font-size:16px;cursor:pointer;color:var(--muted)}
-
   .new-chat{display:flex;align-items:center;justify-content:center;gap:8px;border:none;cursor:pointer;
     background:linear-gradient(135deg,var(--green-l),var(--green-d));color:#fff;font-weight:700;
     font-size:14.5px;padding:13px;border-radius:14px;box-shadow:0 8px 20px rgba(88,204,2,.32);
     transition:.25s;font-family:inherit}
   .new-chat:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(88,204,2,.42)}
-
-  .side-label{font-size:11.5px;font-weight:700;letter-spacing:1.4px;color:#8aa883;text-transform:uppercase;
-    padding:2px 6px}
+  .side-label{font-size:11.5px;font-weight:700;letter-spacing:1.4px;color:#8aa883;text-transform:uppercase;padding:2px 6px}
   .history-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding-right:2px}
   .history-list::-webkit-scrollbar{width:7px}
   .history-list::-webkit-scrollbar-thumb{background:#d3ecd0;border-radius:8px}
@@ -82,12 +80,14 @@
     width:26px;height:26px;border-radius:8px;opacity:0;transition:.2s;flex:0 0 auto}
   .hitem:hover .hdel{opacity:1}
   .hdel:hover{background:#ffe3e0;color:#e0362a}
-  .side-foot{border-top:1px solid #e9f5e0;padding-top:10px}
-  .clear-all{width:100%;border:1px solid #f0d7d4;background:#fff;color:#c96a5f;font-size:13px;
+  .side-foot{border-top:1px solid #e9f5e0;padding-top:10px;display:flex;flex-direction:column;gap:8px}
+  .clear-all,.export-btn{width:100%;border:1px solid #e3f2d9;background:#fff;font-size:13px;
     font-weight:600;padding:10px;border-radius:12px;cursor:pointer;transition:.25s;font-family:inherit}
-  .clear-all:hover{background:#fff1ef;border-color:#f3b7b0;transform:translateY(-2px)}
+  .clear-all{border-color:#f0d7d4;color:#c96a5f}
+  .clear-all:hover{background:#fff1ef;border-color:#f3b7b0}
+  .export-btn{color:var(--green-d);border-color:#d3efc1}
+  .export-btn:hover{background:#f0f9e8;transform:translateY(-2px)}
 
-  /* ===== Header ===== */
   header{display:flex;align-items:center;gap:12px;padding:18px 22px 6px}
   .burger{display:none;border:1px solid #e3f2d9;background:#fff;width:42px;height:42px;
     border-radius:12px;font-size:18px;cursor:pointer;transition:.2s}
@@ -95,22 +95,33 @@
   .tag{margin-left:auto;font-size:12.5px;color:var(--muted);background:#fff;
     padding:6px 12px;border-radius:999px;border:1px solid #e3f5d8;font-weight:600}
 
-  /* ===== Chat Card ===== */
+  /* Chat Card */
   .chat-card{max-width:920px;width:100%;margin:14px auto 26px;background:var(--card);
     backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
     border:1px solid rgba(255,255,255,.85);border-radius:26px;box-shadow:var(--shadow);
     display:flex;flex-direction:column;flex:1;min-height:520px;overflow:hidden;
     animation:fadeUp .6s ease both;position:relative}
   @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+
   .chat-head{display:flex;align-items:center;gap:10px;padding:14px 20px;
     border-bottom:1px solid #eaf6e0;background:rgba(255,255,255,.55)}
   .dot{width:9px;height:9px;border-radius:50%;background:var(--green);animation:pulse 1.8s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(88,204,2,.55)}70%{box-shadow:0 0 0 10px rgba(88,204,2,0)}100%{box-shadow:0 0 0 0 rgba(88,204,2,0)}}
-  .chat-head b{font-family:'Sora',sans-serif;font-size:14.5px;max-width:60%;
+  .chat-head b{font-family:'Sora',sans-serif;font-size:14.5px;max-width:50%;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .chat-head small{color:var(--muted);font-size:12px}
 
-  /* ===== Messages ===== */
+  /* Model Selector */
+  .model-select{margin-left:auto;position:relative}
+  .model-select select{appearance:none;-webkit-appearance:none;border:1.5px solid #d3efc1;
+    background:#fff;color:var(--green-d);font-weight:600;font-size:13px;
+    padding:7px 30px 7px 12px;border-radius:10px;cursor:pointer;outline:none;
+    font-family:'Inter',sans-serif;transition:.2s}
+  .model-select select:hover{border-color:var(--green);box-shadow:0 2px 8px rgba(88,204,2,.15)}
+  .model-select::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);
+    color:var(--green-d);font-size:12px;pointer-events:none}
+
+  /* Messages */
   .messages{flex:1;overflow-y:auto;padding:22px 20px;scroll-behavior:smooth}
   .messages::-webkit-scrollbar{width:8px}
   .messages::-webkit-scrollbar-thumb{background:#cfebbf;border-radius:8px}
@@ -129,16 +140,16 @@
   .chip:hover{transform:translateY(-3px);border-color:var(--green);color:var(--green-d);
     box-shadow:0 10px 22px rgba(88,204,2,.22)}
 
-  .msg{display:flex;gap:10px;margin-bottom:18px;animation:fadeUp .35s ease both}
+  .msg{display:flex;gap:10px;margin-bottom:18px;animation:fadeUp .35s ease both;position:relative}
   .msg.user{flex-direction:row-reverse}
   .av{width:34px;height:34px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;
     background:#fff;border:1.5px solid var(--green);box-shadow:0 4px 10px rgba(88,204,2,.25)}
   .av svg{width:21px;height:21px}
   .av.user-av{font-size:15px;border-color:#d9ecce}
-  .bubble{max-width:78%;padding:12px 16px;border-radius:18px;line-height:1.65;font-size:15px;
-    white-space:pre-wrap;word-break:break-word}
+  .bubble{max-width:78%;padding:14px 18px;border-radius:18px;line-height:1.7;font-size:15px;
+    word-break:break-word;overflow:hidden}
   .msg.user .bubble{background:linear-gradient(135deg,var(--green),var(--green-d));color:#fff;
-    border-bottom-right-radius:6px;box-shadow:0 8px 20px rgba(88,204,2,.3)}
+    border-bottom-right-radius:6px;box-shadow:0 8px 20px rgba(88,204,2,.3);white-space:pre-wrap}
   .msg.bot .bubble{background:#fff;border:1px solid #e8f5df;border-bottom-left-radius:6px;
     box-shadow:0 6px 16px rgba(20,60,10,.06);color:#17310f}
   .err{color:#d93025;font-weight:500}
@@ -151,9 +162,84 @@
   .typing span:nth-child(3){animation-delay:.3s}
   @keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:.45}30%{transform:translateY(-8px);opacity:1}}
 
-  /* ===== Attachments Bar (NEW) ===== */
-  .attachments{display:none;flex-wrap:wrap;gap:8px;padding:12px 16px 0;
-    background:rgba(255,255,255,.65)}
+  /* ===== Markdown Content ===== */
+  .md{line-height:1.75;font-size:15px}
+  .md p{margin:.6em 0}
+  .md p:first-child{margin-top:0}
+  .md p:last-child{margin-bottom:0}
+  .md h1,.md h2,.md h3,.md h4{font-family:'Sora',sans-serif;margin:1em 0 .5em;line-height:1.3}
+  .md h1{font-size:1.5em;border-bottom:1px solid #e8f5df;padding-bottom:.3em}
+  .md h2{font-size:1.3em;border-bottom:1px solid #e8f5df;padding-bottom:.2em}
+  .md h3{font-size:1.15em}
+  .md h4{font-size:1.05em}
+  .md ul,.md ol{margin:.6em 0;padding-left:1.6em}
+  .md li{margin:.3em 0}
+  .md li::marker{color:var(--green-d)}
+  .md blockquote{border-left:4px solid var(--green);background:#f0f9e8;
+    margin:.8em 0;padding:.6em 1em;border-radius:0 10px 10px 0;color:#3d5c37}
+  .md hr{border:none;border-top:2px solid #e8f5df;margin:1.2em 0}
+  .md a{color:var(--green-d);text-decoration:underline;text-underline-offset:2px}
+  .md a:hover{color:var(--green)}
+  .md strong{font-weight:700;color:#1a3a12}
+  .md em{font-style:italic}
+  .md img{max-width:100%;border-radius:12px;margin:.5em 0}
+
+  /* Inline code */
+  .md code:not(pre code){background:#f0f9e8;border:1px solid #d3efc1;
+    padding:1px 7px;border-radius:6px;font-size:.9em;color:#2e7d00;
+    font-family:'SF Mono','Fira Code',monospace}
+
+  /* Code blocks */
+  .md pre{background:#1a2e14;border:1px solid #2a4a20;border-radius:14px;
+    overflow:hidden;margin:.8em 0;position:relative}
+  .code-header{display:flex;align-items:center;justify-content:space-between;
+    padding:8px 16px;background:#162512;border-bottom:1px solid #2a4a20}
+  .code-lang{font-size:11.5px;color:#7bc94e;font-weight:600;
+    font-family:'SF Mono',monospace;letter-spacing:.5px;text-transform:uppercase}
+  .code-copy-btn{background:rgba(88,204,2,.15);border:1px solid rgba(88,204,2,.3);
+    color:#93e619;font-size:11.5px;padding:4px 12px;border-radius:7px;cursor:pointer;
+    transition:.2s;font-family:'Inter',sans-serif;font-weight:600}
+  .code-copy-btn:hover{background:rgba(88,204,2,.3);border-color:var(--green)}
+  .code-copy-btn.copied{background:rgba(88,204,2,.4);color:#fff;border-color:var(--green-l)}
+  .md pre code{display:block;padding:16px;overflow-x:auto;font-size:13.5px;
+    line-height:1.6;color:#d4e8cc;background:transparent;
+    font-family:'SF Mono','Fira Code','Cascadia Code',monospace;
+    tab-size:2}
+  .md pre code::-webkit-scrollbar{height:6px}
+  .md pre code::-webkit-scrollbar-thumb{background:#2a4a20;border-radius:6px}
+
+  /* Tables */
+  .md table{border-collapse:collapse;width:100%;margin:.8em 0;font-size:14px}
+  .md th,.md td{border:1px solid #d3efc1;padding:8px 12px;text-align:left}
+  .md th{background:#f0f9e8;font-weight:700;color:#2c4a26}
+  .md tr:nth-child(even) td{background:#fafff7}
+
+  /* ===== Message Actions ===== */
+  .msg-actions{display:flex;gap:6px;margin-top:8px;padding-top:8px;
+    border-top:1px solid #eef7e8;opacity:0;transition:.2s;flex-wrap:wrap}
+  .msg.bot:hover .msg-actions{opacity:1}
+  .msg-action{background:#f0f9e8;border:1px solid #d3efc1;color:var(--green-d);
+    font-size:11.5px;padding:4px 10px;border-radius:7px;cursor:pointer;transition:.2s;
+    font-family:'Inter',sans-serif;font-weight:600;display:flex;align-items:center;gap:4px}
+  .msg-action:hover{background:var(--green);color:#fff;border-color:var(--green-d)}
+  .msg-action.copied{background:var(--green);color:#fff}
+
+  /* ===== Regenerate ===== */
+  .regen-bar{display:flex;justify-content:center;margin:-8px 0 18px;padding-left:44px}
+  .regen-btn{background:#fff;border:1.5px solid #d3efc1;color:var(--green-d);
+    font-size:13px;font-weight:600;padding:8px 20px;border-radius:999px;cursor:pointer;
+    transition:.25s;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:6px}
+  .regen-btn:hover{background:#f0f9e8;border-color:var(--green);transform:translateY(-2px);
+    box-shadow:0 6px 16px rgba(88,204,2,.2)}
+  .regen-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+  /* Wait Timer */
+  .wait-info{font-size:12px;color:#8aa883;text-align:center;padding:4px 0 0;
+    animation:fadeUp .3s ease both}
+  .wait-info .elapsed{font-weight:700;color:var(--green-d)}
+
+  /* Attachments */
+  .attachments{display:none;flex-wrap:wrap;gap:8px;padding:12px 16px 0;background:rgba(255,255,255,.65)}
   .attachments.has-files{display:flex}
   .file-chip{display:flex;align-items:center;gap:8px;background:#f0f9e8;
     border:1px solid #d3efc1;border-radius:12px;padding:7px 12px;font-size:13px;
@@ -161,17 +247,15 @@
   .file-chip::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
     background:linear-gradient(180deg,var(--green-l),var(--green-d))}
   .file-icon{font-size:18px;flex:0 0 auto}
-  .file-thumb{width:34px;height:34px;border-radius:8px;object-fit:cover;flex:0 0 auto;
-    border:1px solid #d3efc1}
+  .file-thumb{width:34px;height:34px;border-radius:8px;object-fit:cover;flex:0 0 auto;border:1px solid #d3efc1}
   .file-info{display:flex;flex-direction:column;min-width:0;gap:1px}
   .file-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;font-size:12.5px}
   .file-size{font-size:11px;color:#8aa883}
   .file-remove{border:none;background:transparent;color:#a7bda0;font-size:15px;cursor:pointer;
-    width:24px;height:24px;border-radius:6px;flex:0 0 auto;transition:.2s;
-    display:grid;place-items:center}
+    width:24px;height:24px;border-radius:6px;flex:0 0 auto;transition:.2s;display:grid;place-items:center}
   .file-remove:hover{background:#ffe3e0;color:#e0362a}
 
-  /* ===== Composer ===== */
+  /* Composer */
   .composer{display:flex;gap:10px;align-items:flex-end;padding:14px 16px;
     border-top:1px solid #eaf6e0;background:rgba(255,255,255,.65)}
   .composer textarea{flex:1;resize:none;border:1.5px solid #e2f0d8;background:#fff;
@@ -179,22 +263,16 @@
     max-height:130px;outline:none;transition:.25s;color:var(--ink)}
   .composer textarea:focus{border-color:var(--green);box-shadow:0 0 0 4px rgba(88,204,2,.15)}
   .composer textarea::placeholder{color:#9db894}
-
-  /* ===== Attach Button (NEW) ===== */
   .attach-btn{width:48px;height:48px;border:2px solid #d3efc1;border-radius:16px;cursor:pointer;
     flex:0 0 auto;background:#fff;color:var(--green-d);font-size:20px;
     display:grid;place-items:center;transition:.25s;position:relative}
-  .attach-btn:hover{border-color:var(--green);background:#f0f9e8;transform:translateY(-2px);
-    box-shadow:0 6px 16px rgba(88,204,2,.2)}
+  .attach-btn:hover{border-color:var(--green);background:#f0f9e8;transform:translateY(-2px)}
   .attach-btn:active{transform:scale(.94)}
-  .attach-btn.has-files{background:var(--green);color:#fff;border-color:var(--green);
-    box-shadow:0 4px 14px rgba(88,204,2,.35)}
+  .attach-btn.has-files{background:var(--green);color:#fff;border-color:var(--green)}
   .attach-btn .badge{position:absolute;top:-4px;right:-4px;background:#ff6b35;color:#fff;
     font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:9px;
-    display:grid;place-items:center;padding:0 4px;border:2px solid #fff;
-    animation:popIn .2s ease both}
+    display:grid;place-items:center;padding:0 4px;border:2px solid #fff;animation:popIn .2s ease both}
   @keyframes popIn{from{transform:scale(0)}to{transform:scale(1)}}
-
   .send{width:48px;height:48px;border:none;border-radius:16px;cursor:pointer;flex:0 0 auto;
     background:linear-gradient(135deg,var(--green-l),var(--green-d));color:#fff;font-size:19px;
     display:grid;place-items:center;transition:.25s;box-shadow:0 8px 20px rgba(88,204,2,.35);
@@ -206,27 +284,28 @@
   .send.loading::after{content:"";position:absolute;width:20px;height:20px;border-radius:50%;
     border:3px solid rgba(255,255,255,.4);border-top-color:#fff;animation:spin .7s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
-
-  .hint{font-size:11.5px;color:#93ac8c;text-align:center;padding-bottom:10px;
-    background:rgba(255,255,255,.65)}
+  .hint{font-size:11.5px;color:#93ac8c;text-align:center;padding-bottom:10px;background:rgba(255,255,255,.65)}
   footer{position:relative;z-index:2;text-align:center;padding:0 0 20px;font-size:12.5px;color:var(--muted)}
   footer b{color:var(--green-d)}
-
   .overlay{display:none;position:fixed;inset:0;background:rgba(15,40,10,.4);z-index:25;backdrop-filter:blur(2px)}
 
-  /* ===== Drag Overlay (NEW) ===== */
   .drag-overlay{display:none;position:fixed;inset:0;z-index:999;
     background:rgba(88,204,2,.1);border:3px dashed var(--green);
-    place-items:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+    place-items:center;backdrop-filter:blur(4px)}
   .drag-overlay.active{display:grid}
   .drag-overlay-inner{background:#fff;padding:36px 56px;border-radius:24px;text-align:center;
     box-shadow:var(--shadow);animation:fadeUp .3s ease both;max-width:90vw}
-  .drag-overlay-inner .drop-icon{font-size:52px;margin-bottom:10px;display:block;
-    animation:floaty 2s ease-in-out infinite}
+  .drag-overlay-inner .drop-icon{font-size:52px;margin-bottom:10px;display:block}
   .drag-overlay-inner h3{font-family:'Sora',sans-serif;font-size:22px;color:var(--green-d);margin-bottom:6px}
   .drag-overlay-inner p{color:var(--muted);font-size:14px}
 
-  /* ===== Responsive ===== */
+  /* Toast */
+  .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(80px);
+    background:var(--green-d);color:#fff;padding:12px 24px;border-radius:14px;
+    font-size:14px;font-weight:600;z-index:1000;transition:.3s;opacity:0;
+    box-shadow:0 8px 24px rgba(46,158,0,.4);pointer-events:none}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
   @media(max-width:860px){
     .sidebar{position:fixed;left:0;top:0;transform:translateX(-105%);transition:transform .3s ease;
       box-shadow:0 0 50px rgba(0,0,0,.18);background:rgba(255,255,255,.95)}
@@ -238,12 +317,14 @@
     .chat-card{margin-top:6px;border-radius:20px;min-height:460px}
     .welcome h1{font-size:26px}
     .big-clover{width:92px;height:92px}
-    .bubble{max-width:86%}
+    .bubble{max-width:88%}
     header{padding:14px 16px 4px}
     .attach-btn,.send{width:44px;height:44px;border-radius:14px}
+    .file-chip{max-width:180px}
+    .model-select select{font-size:12px;padding:6px 26px 6px 10px}
+    .msg-actions{opacity:1}
     .drag-overlay-inner{padding:24px 32px}
     .drag-overlay-inner h3{font-size:18px}
-    .file-chip{max-width:180px}
   }
   @media(max-width:400px){
     .attach-btn,.send{width:40px;height:40px;font-size:17px;border-radius:12px}
@@ -280,31 +361,27 @@
 <div id="particles"></div>
 
 <div class="app">
-  <!-- ===== Sidebar ===== -->
   <aside class="sidebar" id="sidebar">
     <div class="side-head">
       <div class="logo"><svg viewBox="-50 -50 100 100"><use href="#clover"></use></svg></div>
       <div class="brand">Lucky <span>AI</span></div>
-      <button class="side-close" id="sideClose" aria-label="Close">✕</button>
+      <button class="side-close" id="sideClose">✕</button>
     </div>
-
     <button class="new-chat" id="newChatBtn">＋ New Chat</button>
-
     <div class="side-label">History</div>
     <div class="history-list" id="historyList"></div>
-
     <div class="side-foot">
+      <button class="export-btn" id="exportBtn">📥 Export Chat</button>
       <button class="clear-all" id="clearAllBtn">🗑 Clear all history</button>
     </div>
   </aside>
   <div class="overlay" id="overlay"></div>
 
-  <!-- ===== Main ===== -->
   <div class="main">
     <header>
-      <button class="burger" id="burger" aria-label="Menu">☰</button>
+      <button class="burger" id="burger">☰</button>
       <div class="brand" style="font-size:22px">Lucky <span>AI</span></div>
-      <div class="tag">🍀 ကံကောင်းတဲ့ AI Companion</div>
+      <div class="tag">🍀 ChatGPT-level AI Companion</div>
     </header>
 
     <main class="chat-card">
@@ -312,7 +389,16 @@
         <span class="dot"></span>
         <div style="min-width:0">
           <b id="chatTitle">Lucky Chat</b><br>
-          <small id="chatStatus">online · auto model</small>
+          <small id="chatStatus">online</small>
+        </div>
+        <!-- Model Selector -->
+        <div class="model-select">
+          <select id="modelSelect">
+            <option value="openai">🧠 Smart (GPT-4o)</option>
+            <option value="openai-fast">⚡ Fast</option>
+            <option value="mistral">🌊 Mistral</option>
+            <option value="llama">🦙 LLaMA</option>
+          </select>
         </div>
       </div>
 
@@ -320,7 +406,7 @@
         <div class="welcome" id="welcome">
           <svg class="big-clover" viewBox="-50 -50 100 100"><use href="#clover"></use></svg>
           <h1>Lucky <em>AI</em> နဲ့ မေးကြည့်ပါ 🍀</h1>
-          <p>စာသား၊ ဖိုင်တွေ၊ ဓာတ်ပုံတွေ တင်ပြီး မေးလို့ရပါတယ် — AI က သင့်အတွက် ဖြေကြည့်ပေးမယ် 🍀</p>
+          <p>စာသား၊ ဖိုင်တွေ၊ ဓာတ်ပုံတွေ တင်ပြီး မေးလို့ရပါတယ် — Markdown, code highlighting အပြည့်အစုံပါ 🍀</p>
           <div class="chips">
             <button class="chip" data-q="Hello! How are you today?">👋 Hello!</button>
             <button class="chip" data-q="Write a short motivational poem for me.">📝 Write a poem</button>
@@ -331,33 +417,35 @@
         </div>
       </div>
 
-      <!-- Attachments bar (NEW) -->
       <div class="attachments" id="attachments"></div>
+      <div class="wait-info" id="waitInfo" style="display:none">
+        ⏳ AI ဖြေနေတယ်... <span class="elapsed" id="elapsedTime">0s</span>
+      </div>
 
       <form class="composer" id="form" autocomplete="off">
         <textarea id="input" rows="1" placeholder="Type your message… or 📎 attach files (Enter to send)"></textarea>
-        <button class="attach-btn" id="attachBtn" type="button" aria-label="Attach file">📎</button>
-        <button class="send" id="sendBtn" type="submit" aria-label="Send">➤</button>
+        <button class="attach-btn" id="attachBtn" type="button">📎</button>
+        <button class="send" id="sendBtn" type="submit">➤</button>
       </form>
-      <div class="hint">📎 Text files & images supported · <b>Lucky AI</b></div>
+      <div class="hint">📎 Text & images supported · <b>Lucky AI</b> · Markdown + Code rendering</div>
     </main>
 
     <footer>🍀 Developed by <b>Its_PokemonZ</b> · Deployed on Vercel</footer>
   </div>
 </div>
 
-<!-- Drag overlay (NEW) -->
 <div class="drag-overlay" id="dragOverlay">
   <div class="drag-overlay-inner">
     <span class="drop-icon">📎</span>
     <h3>ဖိုင်တွေကို ဤနေရာတွင် ချပါ</h3>
-    <p>Text files (.txt, .py, .js, .json …) နဲ့ Images (PNG, JPG, GIF, WebP) ထောက်ခံတယ်</p>
+    <p>Text files နဲ့ Images ထောက်ခံတယ်</p>
   </div>
 </div>
 
-<!-- Hidden file input (NEW) -->
+<div class="toast" id="toast"></div>
+
 <input type="file" id="fileInput" multiple
-  accept=".txt,.md,.json,.js,.ts,.jsx,.tsx,.py,.html,.css,.scss,.xml,.csv,.yml,.yaml,.log,.sh,.bat,.sql,.r,.java,.c,.cpp,.h,.cs,.go,.rs,.rb,.php,.swift,.kt,.dart,.vue,.svelte,.ini,.conf,.cfg,.env,.rst,.tex,.org,image/*"
+  accept=".txt,.md,.json,.js,.ts,.jsx,.tsx,.py,.html,.css,.scss,.xml,.csv,.yml,.yaml,.log,.sh,.bat,.sql,.java,.c,.cpp,.go,.rs,.rb,.php,.swift,.kt,.dart,.vue,image/*"
   style="display:none">
 
 <script>
@@ -369,19 +457,33 @@
   const form        = document.getElementById('form');
   const historyEl   = document.getElementById('historyList');
   const chatTitle   = document.getElementById('chatTitle');
+  const chatStatus  = document.getElementById('chatStatus');
   const sidebar     = document.getElementById('sidebar');
   const overlay     = document.getElementById('overlay');
   const fileInput   = document.getElementById('fileInput');
   const attachBtn   = document.getElementById('attachBtn');
   const attachBar   = document.getElementById('attachments');
   const dragOverlay = document.getElementById('dragOverlay');
+  const waitInfo    = document.getElementById('waitInfo');
+  const elapsedEl   = document.getElementById('elapsedTime');
+  const modelSelect = document.getElementById('modelSelect');
+  const toastEl     = document.getElementById('toast');
 
   let busy = false;
   let currentId = null;
   let currentMessages = [];
-  const attachedFiles = [];   // { id, file, name, type, size }
+  const attachedFiles = [];
+  let waitTimer = null;
+  let lastUserMessage = null;
 
   const HKEY = 'lucky_ai_history';
+
+  /* ================= Toast ================= */
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    setTimeout(() => toastEl.classList.remove('show'), 2500);
+  }
 
   /* ================= Particles ================= */
   const pWrap = document.getElementById('particles');
@@ -416,17 +518,117 @@
     return (bytes / 1048576).toFixed(1) + ' MB';
   }
 
-  /* ================= File Upload (NEW) ================= */
+  function copyToClipboard(text) {
+    if (navigator.clipboard) {
+      return navigator.clipboard.writeText(text);
+    }
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    return Promise.resolve();
+  }
+
+  /* ================= Markdown Rendering ================= */
+  marked.setOptions({
+    breaks: true,
+    gfm: true,
+    highlight: function(code, lang) {
+      if (lang && hljs.getLanguage(lang)) {
+        try { return hljs.highlight(code, { language: lang }).value; }
+        catch(e) {}
+      }
+      try { return hljs.highlightAuto(code).value; }
+      catch(e) {}
+      return code;
+    }
+  });
+
+  function renderMarkdown(text) {
+    try {
+      let html = marked.parse(text || '');
+
+      // wrap code blocks with header + copy button
+      const doc = document.createElement('div');
+      doc.innerHTML = html;
+
+      doc.querySelectorAll('pre').forEach(pre => {
+        const code = pre.querySelector('code');
+        if (!code) return;
+
+        // detect language
+        const cls = code.className || '';
+        const langMatch = cls.match(/language-(\w+)/);
+        const lang = langMatch ? langMatch[1] : 'code';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'md-code-block';
+
+        const header = document.createElement('div');
+        header.className = 'code-header';
+        header.innerHTML =
+          '<span class="code-lang">' + esc(lang) + '</span>' +
+          '<button class="code-copy-btn" onclick="copyCode(this)">📋 Copy</button>';
+
+        wrapper.appendChild(header);
+        wrapper.appendChild(pre);
+        pre.parentNode.insertBefore(wrapper, pre);
+      });
+
+      // apply hljs to any remaining
+      doc.querySelectorAll('pre code').forEach(block => {
+        hljs.highlightElement(block);
+      });
+
+      return doc.innerHTML;
+    } catch (e) {
+      return '<span class="err">' + esc(text) + '</span>';
+    }
+  }
+
+  // Global function for copy button onclick
+  window.copyCode = function(btn) {
+    const block = btn.closest('.md-code-block') || btn.closest('pre');
+    const code = block?.querySelector('code');
+    if (!code) return;
+    copyToClipboard(code.textContent).then(() => {
+      btn.textContent = '✅ Copied!';
+      btn.classList.add('copied');
+      showToast('📋 Code copied!');
+      setTimeout(() => {
+        btn.textContent = '📋 Copy';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  };
+
+  /* ================= Wait Timer ================= */
+  function startWaitTimer() {
+    const start = Date.now();
+    waitInfo.style.display = 'block';
+    elapsedEl.textContent = '0s';
+    waitTimer = setInterval(() => {
+      const sec = Math.floor((Date.now() - start) / 1000);
+      elapsedEl.textContent = sec < 60
+        ? sec + 's'
+        : Math.floor(sec / 60) + 'm ' + (sec % 60) + 's';
+    }, 1000);
+  }
+
+  function stopWaitTimer() {
+    if (waitTimer) { clearInterval(waitTimer); waitTimer = null; }
+    waitInfo.style.display = 'none';
+  }
+
+  /* ================= File Upload ================= */
   const TEXT_EXTS = new Set([
-    'txt','md','json','js','ts','jsx','tsx','py','html','css','scss','less',
-    'xml','csv','tsv','yml','yaml','log','sh','bash','bat','cmd','ps1',
-    'sql','r','java','c','cpp','h','hpp','cs','go','rs','rb','php',
-    'swift','kt','dart','vue','svelte','astro','ini','conf','cfg','env',
-    'toml','lock','gitignore','dockerignore','makefile','cmake',
-    'rst','tex','org','adoc','textile','wiki','bbcode','log4j',
-    'gradle','properties','plist','storyboard','xib','pbxproj',
-    'sol','move','cairo','jl','lua','pl','pm','ex','exs','erl',
-    'hs','ml','fs','fsx','clj','cljs','nim','zig','v','sv','vhd'
+    'txt','md','json','js','ts','jsx','tsx','py','html','css','scss',
+    'xml','csv','yml','yaml','log','sh','bash','bat','sql','r',
+    'java','c','cpp','h','cs','go','rs','rb','php','swift','kt',
+    'dart','vue','svelte','ini','conf','cfg','env','toml','rst','tex'
   ]);
 
   function isTextFile(file) {
@@ -435,41 +637,20 @@
   }
 
   function handleFiles(fileList) {
-    const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
-    const MAX_COUNT = 8;
-
     for (const file of fileList) {
-      if (attachedFiles.length >= MAX_COUNT) {
-        alert(`Maximum ${MAX_COUNT} files allowed.`);
-        break;
-      }
-      if (file.size > MAX_SIZE) {
-        alert(`"${file.name}" is too large (${formatFileSize(file.size)}). Max 10 MB.`);
-        continue;
-      }
-
+      if (attachedFiles.length >= 8) { alert('Maximum 8 files.'); break; }
+      if (file.size > 10 * 1024 * 1024) { alert('"' + file.name + '" too large. Max 10 MB.'); continue; }
       const isImage = file.type.startsWith('image/');
-      const isText  = isTextFile(file);
-
-      if (!isImage && !isText) {
-        alert(`"${file.name}" is not supported.\nSupported: text files & images.`);
-        continue;
-      }
-
-      // duplicate check
-      const dup = attachedFiles.some(f =>
-        f.name === file.name && f.size === file.size);
-      if (dup) continue;
-
+      const isText = isTextFile(file);
+      if (!isImage && !isText) { alert('"' + file.name + '" not supported.'); continue; }
+      if (attachedFiles.some(f => f.name === file.name && f.size === file.size)) continue;
       attachedFiles.push({
         id: 'f' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
-        file,
-        name: file.name,
+        file, name: file.name,
         type: isImage ? 'image' : 'text',
         size: file.size
       });
     }
-
     renderAttachments();
     inputEl.focus();
   }
@@ -494,148 +675,95 @@
       if (oldBadge) oldBadge.remove();
       return;
     }
-
     attachBar.classList.add('has-files');
     attachBtn.classList.add('has-files');
-
-    // badge on attach button
     let badge = attachBtn.querySelector('.badge');
-    if (!badge) {
-      badge = document.createElement('span');
-      badge.className = 'badge';
-      attachBtn.appendChild(badge);
-    }
+    if (!badge) { badge = document.createElement('span'); badge.className = 'badge'; attachBtn.appendChild(badge); }
     badge.textContent = attachedFiles.length;
 
     attachBar.innerHTML = attachedFiles.map(f => {
       const sizeStr = formatFileSize(f.size);
-      if (f.type === 'image') {
-        return `
-          <div class="file-chip" data-fid="${f.id}">
-            <img class="file-thumb" data-thumb="${f.id}" alt="">
-            <div class="file-info">
-              <span class="file-name">${esc(f.name)}</span>
-              <span class="file-size">${sizeStr}</span>
-            </div>
-            <button class="file-remove" data-fid="${f.id}" title="Remove">✕</button>
-          </div>`;
-      }
-      return `
-        <div class="file-chip" data-fid="${f.id}">
-          <span class="file-icon">📄</span>
-          <div class="file-info">
-            <span class="file-name">${esc(f.name)}</span>
-            <span class="file-size">${sizeStr}</span>
-          </div>
-          <button class="file-remove" data-fid="${f.id}" title="Remove">✕</button>
-        </div>`;
+      const thumb = f.type === 'image'
+        ? '<img class="file-thumb" data-thumb="' + f.id + '" alt="">'
+        : '<span class="file-icon">📄</span>';
+      return '<div class="file-chip" data-fid="' + f.id + '">' + thumb +
+        '<div class="file-info"><span class="file-name">' + esc(f.name) + '</span>' +
+        '<span class="file-size">' + sizeStr + '</span></div>' +
+        '<button class="file-remove" data-fid="' + f.id + '">✕</button></div>';
     }).join('');
 
-    // load image thumbnails
     for (const f of attachedFiles) {
       if (f.type !== 'image') continue;
       const reader = new FileReader();
       reader.onload = (e) => {
-        const img = attachBar.querySelector(`[data-thumb="${f.id}"]`);
+        const img = attachBar.querySelector('[data-thumb="' + f.id + '"]');
         if (img) img.src = e.target.result;
       };
       reader.readAsDataURL(f.file);
     }
   }
 
-  // Read text file → string
   function readTextFile(file) {
     return new Promise((resolve, reject) => {
       const r = new FileReader();
       r.onload = () => resolve(r.result);
-      r.onerror = () => reject(new Error('ဖိုင်ဖတ်၍မရပါ: ' + file.name));
+      r.onerror = () => reject(new Error('Cannot read: ' + file.name));
       r.readAsText(file);
     });
   }
 
-  // Resize image → base64 JPEG (max 1024px, quality 0.85)
   function processImage(file) {
     return new Promise((resolve, reject) => {
       const img = new Image();
       const url = URL.createObjectURL(file);
-
       img.onload = () => {
         URL.revokeObjectURL(url);
-        const MAX_DIM = 1024;
-        let { width: w, height: h } = img;
-
-        if (w > MAX_DIM || h > MAX_DIM) {
-          const ratio = Math.min(MAX_DIM / w, MAX_DIM / h);
-          w = Math.round(w * ratio);
-          h = Math.round(h * ratio);
+        let w = img.width, h = img.height;
+        if (w > 1024 || h > 1024) {
+          const r = Math.min(1024 / w, 1024 / h);
+          w = Math.round(w * r); h = Math.round(h * r);
         }
-
         const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, w, h);
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
         resolve(canvas.toDataURL('image/jpeg', 0.85));
       };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error('ပုံဖွင့်၍မရပါ: ' + file.name));
-      };
-
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Cannot load: ' + file.name)); };
       img.src = url;
     });
   }
 
-  // Attach button click
   attachBtn.addEventListener('click', () => fileInput.click());
-
-  // File input change
   fileInput.addEventListener('change', () => {
     if (fileInput.files?.length) handleFiles(fileInput.files);
-    fileInput.value = ''; // reset so same file can be re-selected
+    fileInput.value = '';
   });
-
-  // Remove file (event delegation)
   attachBar.addEventListener('click', e => {
     const btn = e.target.closest('.file-remove');
     if (btn) removeFile(btn.dataset.fid);
   });
 
-  // Drag & Drop (NEW)
+  /* ================= Drag & Drop ================= */
   let dragCounter = 0;
-
   document.addEventListener('dragenter', e => {
     if (!e.dataTransfer?.types?.includes('Files')) return;
-    e.preventDefault();
-    dragCounter++;
+    e.preventDefault(); dragCounter++;
     dragOverlay.classList.add('active');
   });
-
   document.addEventListener('dragleave', e => {
-    e.preventDefault();
-    dragCounter--;
-    if (dragCounter <= 0) {
-      dragCounter = 0;
-      dragOverlay.classList.remove('active');
-    }
+    e.preventDefault(); dragCounter--;
+    if (dragCounter <= 0) { dragCounter = 0; dragOverlay.classList.remove('active'); }
   });
-
   document.addEventListener('dragover', e => {
-    if (e.dataTransfer?.types?.includes('Files')) {
-      e.preventDefault();
-    }
+    if (e.dataTransfer?.types?.includes('Files')) e.preventDefault();
   });
-
   document.addEventListener('drop', e => {
     if (!e.dataTransfer?.files?.length) return;
-    e.preventDefault();
-    dragCounter = 0;
+    e.preventDefault(); dragCounter = 0;
     dragOverlay.classList.remove('active');
     handleFiles(e.dataTransfer.files);
   });
 
-  // Paste image from clipboard (NEW)
   document.addEventListener('paste', e => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -643,48 +771,35 @@
       if (item.type.startsWith('image/')) {
         const file = item.getAsFile();
         if (file) {
-          // give it a name if missing
-          if (!file.name || file.name === 'image.png') {
-            const ext = item.type.split('/')[1] || 'png';
-            const named = new File([file], `pasted_${Date.now()}.${ext}`, { type: file.type });
-            handleFiles([named]);
-          } else {
-            handleFiles([file]);
-          }
+          const ext = item.type.split('/')[1] || 'png';
+          handleFiles([new File([file], 'pasted_' + Date.now() + '.' + ext, { type: file.type })]);
         }
       }
     }
   });
 
-  /* ================= History (localStorage) ================= */
+  /* ================= History ================= */
   function loadHistory() {
     try { return JSON.parse(localStorage.getItem(HKEY)) || []; }
     catch { return []; }
   }
-  function saveHistory(list) {
-    localStorage.setItem(HKEY, JSON.stringify(list));
-  }
+  function saveHistory(list) { localStorage.setItem(HKEY, JSON.stringify(list)); }
 
   function persist() {
     const list = loadHistory();
     let conv = list.find(c => c.id === currentId);
-
     if (!conv) {
       currentId = 'c' + Date.now() + Math.floor(Math.random() * 999);
       conv = { id: currentId, title: '', createdAt: Date.now(), messages: [] };
       list.unshift(conv);
     }
-
     conv.messages = currentMessages.slice();
-
     if (!conv.title) {
       const first = currentMessages.find(m => m.role === 'user');
       conv.title = first ? first.text.slice(0, 40) : 'New Chat';
     }
-
     const idx = list.indexOf(conv);
     if (idx > 0) { list.splice(idx, 1); list.unshift(conv); }
-
     saveHistory(list);
     renderHistory();
     updateTitle();
@@ -696,15 +811,14 @@
       historyEl.innerHTML = '<div class="hempty">💬 chat မရှိသေးပါ<br>စတင်မေးကြည့်ပါ 🍀</div>';
       return;
     }
-    historyEl.innerHTML = list.map((c, i) => `
-      <div class="hitem ${c.id === currentId ? 'active' : ''}" data-id="${c.id}" style="animation-delay:${i * 0.03}s">
-        <span class="hico">💬</span>
-        <div class="hmeta">
-          <div class="htitle">${esc(c.title || 'New Chat')}</div>
-          <div class="hdate">${formatDate(c.createdAt)}</div>
-        </div>
-        <button class="hdel" data-del="${c.id}" title="Delete">✕</button>
-      </div>`).join('');
+    historyEl.innerHTML = list.map((c, i) =>
+      '<div class="hitem ' + (c.id === currentId ? 'active' : '') + '" data-id="' + c.id +
+        '" style="animation-delay:' + (i * 0.03) + 's">' +
+        '<span class="hico">💬</span><div class="hmeta">' +
+        '<div class="htitle">' + esc(c.title || 'New Chat') + '</div>' +
+        '<div class="hdate">' + formatDate(c.createdAt) + '</div></div>' +
+        '<button class="hdel" data-del="' + c.id + '">✕</button></div>'
+    ).join('');
   }
 
   function updateTitle() {
@@ -719,21 +833,16 @@
     if (!conv) return;
     currentId = conv.id;
     currentMessages = conv.messages.slice();
-    renderMessages();
-    renderHistory();
-    updateTitle();
-    closeSidebar();
+    renderMessages(); renderHistory(); updateTitle(); closeSidebar();
   }
 
   function newChat() {
     currentId = null;
     currentMessages = [];
+    lastUserMessage = null;
     clearAttachments();
-    renderMessages();
-    renderHistory();
-    updateTitle();
-    inputEl.focus();
-    closeSidebar();
+    renderMessages(); renderHistory(); updateTitle();
+    inputEl.focus(); closeSidebar();
   }
 
   function deleteConv(id) {
@@ -761,7 +870,7 @@
       '<div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>';
     messagesEl.appendChild(div);
     scrollDown();
-    return div.querySelector('.bubble');
+    return div;
   }
 
   function addBotMsgInstant(text) {
@@ -769,17 +878,57 @@
     div.className = 'msg bot';
     div.innerHTML =
       '<div class="av"><svg viewBox="-50 -50 100 100"><use href="#clover"></use></svg></div>' +
-      '<div class="bubble"></div>';
-    div.querySelector('.bubble').textContent = text;
+      '<div class="bubble md"></div>';
+    div.querySelector('.bubble').innerHTML = renderMarkdown(text);
+    addMsgActions(div, text);
     messagesEl.appendChild(div);
   }
 
-  function renderMessages() {
-    messagesEl.querySelectorAll('.msg').forEach(m => m.remove());
-    if (!currentMessages.length) {
-      welcome.classList.remove('gone');
-      return;
+  function addMsgActions(msgEl, text) {
+    const actions = document.createElement('div');
+    actions.className = 'msg-actions';
+    actions.innerHTML =
+      '<button class="msg-action" onclick="copyMsg(this)">📋 Copy</button>' +
+      '<button class="msg-action" onclick="regenMsg()">🔄 Regenerate</button>';
+    const bubble = msgEl.querySelector('.bubble');
+    bubble.appendChild(actions);
+
+    // store text for copy
+    msgEl._msgText = text;
+  }
+
+  window.copyMsg = function(btn) {
+    const msgEl = btn.closest('.msg');
+    const text = msgEl?._msgText || '';
+    copyToClipboard(text).then(() => {
+      showToast('📋 Copied!');
+      btn.classList.add('copied');
+      btn.innerHTML = '✅ Copied';
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.innerHTML = '📋 Copy';
+      }, 2000);
+    });
+  };
+
+  window.regenMsg = function() {
+    if (busy || !lastUserMessage) return;
+    // remove last bot message
+    const msgs = currentMessages;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].role === 'bot') { msgs.splice(i, 1); break; }
     }
+    // remove last bot DOM element
+    const botEls = messagesEl.querySelectorAll('.msg.bot');
+    if (botEls.length) botEls[botEls.length - 1].remove();
+    // re-send
+    send(lastUserMessage, true);   // true = regenerate mode
+    showToast('🔄 Regenerating...');
+  };
+
+  function renderMessages() {
+    messagesEl.querySelectorAll('.msg, .regen-bar').forEach(m => m.remove());
+    if (!currentMessages.length) { welcome.classList.remove('gone'); return; }
     welcome.classList.add('gone');
     for (const m of currentMessages) {
       if (m.role === 'user') addUserMsg(m.text);
@@ -795,18 +944,46 @@
       caret.className = 'caret';
       el.appendChild(caret);
       let i = 0;
-      const step = Math.max(2, Math.ceil(text.length / 500));
+      const step = Math.max(3, Math.ceil(text.length / 400));
       const timer = setInterval(() => {
         caret.insertAdjacentText('beforebegin', text.slice(i, i + step));
         i += step;
         scrollDown();
-        if (i >= text.length) { clearInterval(timer); caret.remove(); resolve(); }
-      }, 14);
+        if (i >= text.length) {
+          clearInterval(timer);
+          // Render markdown when done
+          el.classList.add('md');
+          el.innerHTML = renderMarkdown(text);
+          resolve();
+        }
+      }, 12);
     });
   }
 
-  /* ================= Send (updated with files) ================= */
-  async function send(text) {
+  /* ================= Export Chat ================= */
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    if (!currentMessages.length) { showToast('Export လုပ်စရာ chat မရှိဘူး'); return; }
+
+    let md = '# Lucky AI Chat Export 🍀\n\n';
+    md += '> ' + formatDate(Date.now()) + ' · Developed by Its_PokemonZ\n\n---\n\n';
+
+    for (const m of currentMessages) {
+      const who = m.role === 'user' ? '👤 **You**' : '🍀 **Lucky AI**';
+      md += '### ' + who + '\n\n' + m.text + '\n\n---\n\n';
+    }
+
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'lucky-ai-chat-' + Date.now() + '.md';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('📥 Chat exported!');
+  });
+
+  /* ================= Send (with history + model) ================= */
+  async function send(text, isRegen = false) {
     if (busy) return;
     text = (text || '').trim();
     const hasFiles = attachedFiles.length > 0;
@@ -817,34 +994,49 @@
     sendBtn.classList.add('loading');
     welcome.classList.add('gone');
 
-    // display user message
-    const displayText = text || `📎 ${attachedFiles.length} file${attachedFiles.length > 1 ? 's' : ''} attached`;
-    currentMessages.push({ role: 'user', text: displayText });
-    addUserMsg(displayText);
-    persist();
+    const model = modelSelect.value;
+    chatStatus.textContent = model + ' · thinking...';
 
-    const botBubble = addBotMsg();
+    const displayText = text || ('📎 ' + attachedFiles.length + ' file(s) attached');
+
+    let historySnapshot;
+    if (isRegen) {
+      // regenerate: currentMessages already trimmed
+      historySnapshot = currentMessages.slice();
+    } else {
+      historySnapshot = currentMessages.slice();
+      lastUserMessage = text || 'Please analyze the attached file(s).';
+      currentMessages.push({ role: 'user', text: displayText });
+      addUserMsg(displayText);
+      persist();
+    }
+
+    const botMsgEl = addBotMsg();
+    const botBubble = botMsgEl.querySelector('.bubble');
+    startWaitTimer();
 
     try {
-      // read files
       const fileData = [];
       for (const f of attachedFiles) {
         if (f.type === 'text') {
           const content = await readTextFile(f.file);
-          fileData.push({ name: f.name, type: 'text', content });
+          fileData.push({ name: f.name, type: 'text', content: content });
         } else if (f.type === 'image') {
           const content = await processImage(f.file);
-          fileData.push({ name: f.name, type: 'image', content });
+          fileData.push({ name: f.name, type: 'image', content: content });
         }
       }
 
-      const res = await fetch('/api/chat', {
+      const res = await fetch('chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: text || 'Please analyze the attached file(s).',
-          files: fileData
-        })
+          message: text || lastUserMessage || 'Hello',
+          files: fileData,
+          history: historySnapshot,
+          model: model,
+        }),
+        signal: AbortSignal.timeout(300000)
       });
 
       const data = await res.json().catch(() => ({}));
@@ -853,16 +1045,23 @@
       }
 
       currentMessages.push({ role: 'bot', text: data.response });
+      botMsgEl._msgText = data.response;
       persist();
+      stopWaitTimer();
       await typewriter(botBubble, data.response);
-      clearAttachments();   // clear files after success
+      addMsgActions(botMsgEl, data.response);
+      clearAttachments();
+      chatStatus.textContent = model + ' · online';
     } catch (err) {
+      stopWaitTimer();
       const errText = '⚠️ ' + err.message;
       currentMessages.push({ role: 'bot', text: errText });
       persist();
       botBubble.innerHTML = '<span class="err">' + esc(errText) + '</span>';
+      chatStatus.textContent = model + ' · error';
       scrollDown();
     } finally {
+      stopWaitTimer();
       busy = false;
       sendBtn.disabled = false;
       sendBtn.classList.remove('loading');
@@ -893,9 +1092,10 @@
   document.getElementById('newChatBtn').addEventListener('click', newChat);
 
   document.getElementById('clearAllBtn').addEventListener('click', () => {
-    if (!confirm('History အားလုံးကို ဖျက်မှာ သေချာပါသလား?')) return;
+    if (!confirm('History အားလုံး ဖျက်မှာ သေချာပါသလား?')) return;
     localStorage.removeItem(HKEY);
     newChat();
+    showToast('🗑 History cleared');
   });
 
   historyEl.addEventListener('click', e => {
@@ -910,6 +1110,11 @@
   document.getElementById('burger').addEventListener('click', openSidebar);
   document.getElementById('sideClose').addEventListener('click', closeSidebar);
   overlay.addEventListener('click', closeSidebar);
+
+  // Model change
+  modelSelect.addEventListener('change', () => {
+    showToast('🤖 Model: ' + modelSelect.options[modelSelect.selectedIndex].text);
+  });
 
   /* ================= Init ================= */
   renderHistory();
