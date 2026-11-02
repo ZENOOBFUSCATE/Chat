@@ -3,13 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Lucky AI — Your Lucky Assistant 🍀</title>
+<title>Lucky AI — Programming Assistant 🍀</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<!-- Markdown -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<!-- Syntax Highlighting -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <style>
@@ -40,7 +38,6 @@
   .app{display:flex;min-height:100vh;position:relative;z-index:2}
   .main{flex:1;min-width:0;display:flex;flex-direction:column}
 
-  /* Sidebar */
   .sidebar{width:var(--side);flex:0 0 var(--side);height:100vh;position:sticky;top:0;
     background:rgba(255,255,255,.8);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
     border-right:1px solid rgba(255,255,255,.9);
@@ -62,7 +59,8 @@
     font-size:14.5px;padding:13px;border-radius:14px;box-shadow:0 8px 20px rgba(88,204,2,.32);
     transition:.25s;font-family:inherit}
   .new-chat:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(88,204,2,.42)}
-  .side-label{font-size:11.5px;font-weight:700;letter-spacing:1.4px;color:#8aa883;text-transform:uppercase;padding:2px 6px}
+  .side-label{font-size:11.5px;font-weight:700;letter-spacing:1.4px;color:#8aa883;
+    text-transform:uppercase;padding:2px 6px}
   .history-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:5px;padding-right:2px}
   .history-list::-webkit-scrollbar{width:7px}
   .history-list::-webkit-scrollbar-thumb{background:#d3ecd0;border-radius:8px}
@@ -95,7 +93,6 @@
   .tag{margin-left:auto;font-size:12.5px;color:var(--muted);background:#fff;
     padding:6px 12px;border-radius:999px;border:1px solid #e3f5d8;font-weight:600}
 
-  /* Chat Card */
   .chat-card{max-width:920px;width:100%;margin:14px auto 26px;background:var(--card);
     backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
     border:1px solid rgba(255,255,255,.85);border-radius:26px;box-shadow:var(--shadow);
@@ -107,28 +104,21 @@
     border-bottom:1px solid #eaf6e0;background:rgba(255,255,255,.55)}
   .dot{width:9px;height:9px;border-radius:50%;background:var(--green);animation:pulse 1.8s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(88,204,2,.55)}70%{box-shadow:0 0 0 10px rgba(88,204,2,0)}100%{box-shadow:0 0 0 0 rgba(88,204,2,0)}}
-  .chat-head b{font-family:'Sora',sans-serif;font-size:14.5px;max-width:50%;
+  .chat-head b{font-family:'Sora',sans-serif;font-size:14.5px;max-width:55%;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .chat-head small{color:var(--muted);font-size:12px}
+  .chat-head .lang-badge{margin-left:auto;background:#f0f9e8;border:1px solid #d3efc1;
+    color:var(--green-d);font-size:11px;font-weight:700;padding:4px 10px;border-radius:8px;
+    letter-spacing:.5px}
 
-  /* Model Selector */
-  .model-select{margin-left:auto;position:relative}
-  .model-select select{appearance:none;-webkit-appearance:none;border:1.5px solid #d3efc1;
-    background:#fff;color:var(--green-d);font-weight:600;font-size:13px;
-    padding:7px 30px 7px 12px;border-radius:10px;cursor:pointer;outline:none;
-    font-family:'Inter',sans-serif;transition:.2s}
-  .model-select select:hover{border-color:var(--green);box-shadow:0 2px 8px rgba(88,204,2,.15)}
-  .model-select::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);
-    color:var(--green-d);font-size:12px;pointer-events:none}
-
-  /* Messages */
   .messages{flex:1;overflow-y:auto;padding:22px 20px;scroll-behavior:smooth}
   .messages::-webkit-scrollbar{width:8px}
   .messages::-webkit-scrollbar-thumb{background:#cfebbf;border-radius:8px}
   .welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;
     text-align:center;height:100%;gap:14px;animation:fadeUp .7s ease both}
   .welcome.gone{display:none}
-  .big-clover{width:120px;height:120px;animation:floaty 4s ease-in-out infinite;filter:drop-shadow(0 14px 24px rgba(88,204,2,.35))}
+  .big-clover{width:120px;height:120px;animation:floaty 4s ease-in-out infinite;
+    filter:drop-shadow(0 14px 24px rgba(88,204,2,.35))}
   @keyframes floaty{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-14px) rotate(3deg)}}
   .welcome h1{font-family:'Sora',sans-serif;font-size:34px;letter-spacing:-1px}
   .welcome h1 em{font-style:normal;color:var(--green-d)}
@@ -157,12 +147,13 @@
     margin-left:2px;vertical-align:-3px;animation:blink .8s steps(1) infinite;border-radius:2px}
   @keyframes blink{50%{opacity:0}}
   .typing{display:flex;gap:6px;align-items:center;padding:4px 2px}
-  .typing span{width:9px;height:9px;border-radius:50%;background:var(--green);animation:bounce 1.2s infinite}
+  .typing span{width:9px;height:9px;border-radius:50%;background:var(--green);
+    animation:bounce 1.2s infinite}
   .typing span:nth-child(2){animation-delay:.15s}
   .typing span:nth-child(3){animation-delay:.3s}
   @keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:.45}30%{transform:translateY(-8px);opacity:1}}
 
-  /* ===== Markdown Content ===== */
+  /* Markdown */
   .md{line-height:1.75;font-size:15px}
   .md p{margin:.6em 0}
   .md p:first-child{margin-top:0}
@@ -183,13 +174,9 @@
   .md strong{font-weight:700;color:#1a3a12}
   .md em{font-style:italic}
   .md img{max-width:100%;border-radius:12px;margin:.5em 0}
-
-  /* Inline code */
   .md code:not(pre code){background:#f0f9e8;border:1px solid #d3efc1;
     padding:1px 7px;border-radius:6px;font-size:.9em;color:#2e7d00;
     font-family:'SF Mono','Fira Code',monospace}
-
-  /* Code blocks */
   .md pre{background:#1a2e14;border:1px solid #2a4a20;border-radius:14px;
     overflow:hidden;margin:.8em 0;position:relative}
   .code-header{display:flex;align-items:center;justify-content:space-between;
@@ -203,18 +190,14 @@
   .code-copy-btn.copied{background:rgba(88,204,2,.4);color:#fff;border-color:var(--green-l)}
   .md pre code{display:block;padding:16px;overflow-x:auto;font-size:13.5px;
     line-height:1.6;color:#d4e8cc;background:transparent;
-    font-family:'SF Mono','Fira Code','Cascadia Code',monospace;
-    tab-size:2}
+    font-family:'SF Mono','Fira Code','Cascadia Code',monospace;tab-size:2}
   .md pre code::-webkit-scrollbar{height:6px}
   .md pre code::-webkit-scrollbar-thumb{background:#2a4a20;border-radius:6px}
-
-  /* Tables */
   .md table{border-collapse:collapse;width:100%;margin:.8em 0;font-size:14px}
   .md th,.md td{border:1px solid #d3efc1;padding:8px 12px;text-align:left}
   .md th{background:#f0f9e8;font-weight:700;color:#2c4a26}
   .md tr:nth-child(even) td{background:#fafff7}
 
-  /* ===== Message Actions ===== */
   .msg-actions{display:flex;gap:6px;margin-top:8px;padding-top:8px;
     border-top:1px solid #eef7e8;opacity:0;transition:.2s;flex-wrap:wrap}
   .msg.bot:hover .msg-actions{opacity:1}
@@ -224,21 +207,10 @@
   .msg-action:hover{background:var(--green);color:#fff;border-color:var(--green-d)}
   .msg-action.copied{background:var(--green);color:#fff}
 
-  /* ===== Regenerate ===== */
-  .regen-bar{display:flex;justify-content:center;margin:-8px 0 18px;padding-left:44px}
-  .regen-btn{background:#fff;border:1.5px solid #d3efc1;color:var(--green-d);
-    font-size:13px;font-weight:600;padding:8px 20px;border-radius:999px;cursor:pointer;
-    transition:.25s;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:6px}
-  .regen-btn:hover{background:#f0f9e8;border-color:var(--green);transform:translateY(-2px);
-    box-shadow:0 6px 16px rgba(88,204,2,.2)}
-  .regen-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
-
-  /* Wait Timer */
   .wait-info{font-size:12px;color:#8aa883;text-align:center;padding:4px 0 0;
     animation:fadeUp .3s ease both}
   .wait-info .elapsed{font-weight:700;color:var(--green-d)}
 
-  /* Attachments */
   .attachments{display:none;flex-wrap:wrap;gap:8px;padding:12px 16px 0;background:rgba(255,255,255,.65)}
   .attachments.has-files{display:flex}
   .file-chip{display:flex;align-items:center;gap:8px;background:#f0f9e8;
@@ -247,7 +219,8 @@
   .file-chip::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
     background:linear-gradient(180deg,var(--green-l),var(--green-d))}
   .file-icon{font-size:18px;flex:0 0 auto}
-  .file-thumb{width:34px;height:34px;border-radius:8px;object-fit:cover;flex:0 0 auto;border:1px solid #d3efc1}
+  .file-thumb{width:34px;height:34px;border-radius:8px;object-fit:cover;flex:0 0 auto;
+    border:1px solid #d3efc1}
   .file-info{display:flex;flex-direction:column;min-width:0;gap:1px}
   .file-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;font-size:12.5px}
   .file-size{font-size:11px;color:#8aa883}
@@ -255,7 +228,6 @@
     width:24px;height:24px;border-radius:6px;flex:0 0 auto;transition:.2s;display:grid;place-items:center}
   .file-remove:hover{background:#ffe3e0;color:#e0362a}
 
-  /* Composer */
   .composer{display:flex;gap:10px;align-items:flex-end;padding:14px 16px;
     border-top:1px solid #eaf6e0;background:rgba(255,255,255,.65)}
   .composer textarea{flex:1;resize:none;border:1.5px solid #e2f0d8;background:#fff;
@@ -271,7 +243,8 @@
   .attach-btn.has-files{background:var(--green);color:#fff;border-color:var(--green)}
   .attach-btn .badge{position:absolute;top:-4px;right:-4px;background:#ff6b35;color:#fff;
     font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:9px;
-    display:grid;place-items:center;padding:0 4px;border:2px solid #fff;animation:popIn .2s ease both}
+    display:grid;place-items:center;padding:0 4px;border:2px solid #fff;
+    animation:popIn .2s ease both}
   @keyframes popIn{from{transform:scale(0)}to{transform:scale(1)}}
   .send{width:48px;height:48px;border:none;border-radius:16px;cursor:pointer;flex:0 0 auto;
     background:linear-gradient(135deg,var(--green-l),var(--green-d));color:#fff;font-size:19px;
@@ -284,10 +257,12 @@
   .send.loading::after{content:"";position:absolute;width:20px;height:20px;border-radius:50%;
     border:3px solid rgba(255,255,255,.4);border-top-color:#fff;animation:spin .7s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
-  .hint{font-size:11.5px;color:#93ac8c;text-align:center;padding-bottom:10px;background:rgba(255,255,255,.65)}
+  .hint{font-size:11.5px;color:#93ac8c;text-align:center;padding-bottom:10px;
+    background:rgba(255,255,255,.65)}
   footer{position:relative;z-index:2;text-align:center;padding:0 0 20px;font-size:12.5px;color:var(--muted)}
   footer b{color:var(--green-d)}
-  .overlay{display:none;position:fixed;inset:0;background:rgba(15,40,10,.4);z-index:25;backdrop-filter:blur(2px)}
+  .overlay{display:none;position:fixed;inset:0;background:rgba(15,40,10,.4);z-index:25;
+    backdrop-filter:blur(2px)}
 
   .drag-overlay{display:none;position:fixed;inset:0;z-index:999;
     background:rgba(88,204,2,.1);border:3px dashed var(--green);
@@ -299,7 +274,6 @@
   .drag-overlay-inner h3{font-family:'Sora',sans-serif;font-size:22px;color:var(--green-d);margin-bottom:6px}
   .drag-overlay-inner p{color:var(--muted);font-size:14px}
 
-  /* Toast */
   .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(80px);
     background:var(--green-d);color:#fff;padding:12px 24px;border-radius:14px;
     font-size:14px;font-weight:600;z-index:1000;transition:.3s;opacity:0;
@@ -321,10 +295,10 @@
     header{padding:14px 16px 4px}
     .attach-btn,.send{width:44px;height:44px;border-radius:14px}
     .file-chip{max-width:180px}
-    .model-select select{font-size:12px;padding:6px 26px 6px 10px}
     .msg-actions{opacity:1}
     .drag-overlay-inner{padding:24px 32px}
     .drag-overlay-inner h3{font-size:18px}
+    .chat-head .lang-badge{display:none}
   }
   @media(max-width:400px){
     .attach-btn,.send{width:40px;height:40px;font-size:17px;border-radius:12px}
@@ -381,7 +355,7 @@
     <header>
       <button class="burger" id="burger">☰</button>
       <div class="brand" style="font-size:22px">Lucky <span>AI</span></div>
-      <div class="tag">🍀 ChatGPT-level AI Companion</div>
+      <div class="tag">🍀 Programming AI Assistant</div>
     </header>
 
     <main class="chat-card">
@@ -389,30 +363,22 @@
         <span class="dot"></span>
         <div style="min-width:0">
           <b id="chatTitle">Lucky Chat</b><br>
-          <small id="chatStatus">online</small>
+          <small id="chatStatus">online · programming AI</small>
         </div>
-        <!-- Model Selector -->
-        <div class="model-select">
-          <select id="modelSelect">
-            <option value="openai">🧠 Smart (GPT-4o)</option>
-            <option value="openai-fast">⚡ Fast</option>
-            <option value="mistral">🌊 Mistral</option>
-            <option value="llama">🦙 LLaMA</option>
-          </select>
-        </div>
+        <span class="lang-badge">⌨️ CODE</span>
       </div>
 
       <div class="messages" id="messages">
         <div class="welcome" id="welcome">
           <svg class="big-clover" viewBox="-50 -50 100 100"><use href="#clover"></use></svg>
-          <h1>Lucky <em>AI</em> နဲ့ မေးကြည့်ပါ 🍀</h1>
-          <p>စာသား၊ ဖိုင်တွေ၊ ဓာတ်ပုံတွေ တင်ပြီး မေးလို့ရပါတယ် — Markdown, code highlighting အပြည့်အစုံပါ 🍀</p>
+          <h1>Lucky <em>AI</em> Programming 🍀</h1>
+          <p>Code အပြည့်အစုံရေးပေးတယ် — syntax highlighting, copy button, memory အပြည့်ပါ 🍀</p>
           <div class="chips">
-            <button class="chip" data-q="Hello! How are you today?">👋 Hello!</button>
-            <button class="chip" data-q="Write a short motivational poem for me.">📝 Write a poem</button>
-            <button class="chip" data-q="Explain what AI is in simple words.">🤖 Explain AI</button>
-            <button class="chip" data-q="Give me 5 ideas to make money online.">💡 Money ideas</button>
-            <button class="chip" data-q="Write a simple Python hello world script.">🐍 Python script</button>
+            <button class="chip" data-q="Write a complete Python web scraper with BeautifulSoup.">🐍 Python scraper</button>
+            <button class="chip" data-q="Build a complete React todo app with hooks.">⚛️ React app</button>
+            <button class="chip" data-q="Write a SQL query to find top 10 customers by revenue.">🗄️ SQL query</button>
+            <button class="chip" data-q="Explain Big O notation with code examples.">📊 Big O</button>
+            <button class="chip" data-q="Write a complete REST API in Node.js with Express.">🌐 Node.js API</button>
           </div>
         </div>
       </div>
@@ -423,11 +389,11 @@
       </div>
 
       <form class="composer" id="form" autocomplete="off">
-        <textarea id="input" rows="1" placeholder="Type your message… or 📎 attach files (Enter to send)"></textarea>
+        <textarea id="input" rows="1" placeholder="Code မေးပါ… 📎 files လည်း attach လုိ့ရတယ်"></textarea>
         <button class="attach-btn" id="attachBtn" type="button">📎</button>
         <button class="send" id="sendBtn" type="submit">➤</button>
       </form>
-      <div class="hint">📎 Text & images supported · <b>Lucky AI</b> · Markdown + Code rendering</div>
+      <div class="hint">⌨️ Complete code · Markdown · Copy button · <b>Its_PokemonZ</b></div>
     </main>
 
     <footer>🍀 Developed by <b>Its_PokemonZ</b> · Deployed on Vercel</footer>
@@ -438,7 +404,7 @@
   <div class="drag-overlay-inner">
     <span class="drop-icon">📎</span>
     <h3>ဖိုင်တွေကို ဤနေရာတွင် ချပါ</h3>
-    <p>Text files နဲ့ Images ထောက်ခံတယ်</p>
+    <p>Text files & Images ထောက်ခံတယ်</p>
   </div>
 </div>
 
@@ -466,7 +432,6 @@
   const dragOverlay = document.getElementById('dragOverlay');
   const waitInfo    = document.getElementById('waitInfo');
   const elapsedEl   = document.getElementById('elapsedTime');
-  const modelSelect = document.getElementById('modelSelect');
   const toastEl     = document.getElementById('toast');
 
   let busy = false;
@@ -519,9 +484,7 @@
   }
 
   function copyToClipboard(text) {
-    if (navigator.clipboard) {
-      return navigator.clipboard.writeText(text);
-    }
+    if (navigator.clipboard) return navigator.clipboard.writeText(text);
     const ta = document.createElement('textarea');
     ta.value = text;
     ta.style.cssText = 'position:fixed;opacity:0';
@@ -532,17 +495,15 @@
     return Promise.resolve();
   }
 
-  /* ================= Markdown Rendering ================= */
+  /* ================= Markdown ================= */
   marked.setOptions({
     breaks: true,
     gfm: true,
     highlight: function(code, lang) {
       if (lang && hljs.getLanguage(lang)) {
-        try { return hljs.highlight(code, { language: lang }).value; }
-        catch(e) {}
+        try { return hljs.highlight(code, { language: lang }).value; } catch(e) {}
       }
-      try { return hljs.highlightAuto(code).value; }
-      catch(e) {}
+      try { return hljs.highlightAuto(code).value; } catch(e) {}
       return code;
     }
   });
@@ -550,37 +511,30 @@
   function renderMarkdown(text) {
     try {
       let html = marked.parse(text || '');
-
-      // wrap code blocks with header + copy button
       const doc = document.createElement('div');
       doc.innerHTML = html;
 
       doc.querySelectorAll('pre').forEach(pre => {
         const code = pre.querySelector('code');
         if (!code) return;
-
-        // detect language
         const cls = code.className || '';
         const langMatch = cls.match(/language-(\w+)/);
         const lang = langMatch ? langMatch[1] : 'code';
 
         const wrapper = document.createElement('div');
         wrapper.className = 'md-code-block';
-
         const header = document.createElement('div');
         header.className = 'code-header';
         header.innerHTML =
           '<span class="code-lang">' + esc(lang) + '</span>' +
           '<button class="code-copy-btn" onclick="copyCode(this)">📋 Copy</button>';
-
         wrapper.appendChild(header);
         wrapper.appendChild(pre);
         pre.parentNode.insertBefore(wrapper, pre);
       });
 
-      // apply hljs to any remaining
       doc.querySelectorAll('pre code').forEach(block => {
-        hljs.highlightElement(block);
+        if (!block.classList.contains('hljs')) hljs.highlightElement(block);
       });
 
       return doc.innerHTML;
@@ -589,7 +543,6 @@
     }
   }
 
-  // Global function for copy button onclick
   window.copyCode = function(btn) {
     const block = btn.closest('.md-code-block') || btn.closest('pre');
     const code = block?.querySelector('code');
@@ -671,8 +624,8 @@
       attachBar.classList.remove('has-files');
       attachBar.innerHTML = '';
       attachBtn.classList.remove('has-files');
-      const oldBadge = attachBtn.querySelector('.badge');
-      if (oldBadge) oldBadge.remove();
+      const b = attachBtn.querySelector('.badge');
+      if (b) b.remove();
       return;
     }
     attachBar.classList.add('has-files');
@@ -808,7 +761,7 @@
   function renderHistory() {
     const list = loadHistory();
     if (list.length === 0) {
-      historyEl.innerHTML = '<div class="hempty">💬 chat မရှိသေးပါ<br>စတင်မေးကြည့်ပါ 🍀</div>';
+      historyEl.innerHTML = '<div class="hempty">💬 chat မရှိသေးပါ<br>code မေးကြည့်ပါ 🍀</div>';
       return;
     }
     historyEl.innerHTML = list.map((c, i) =>
@@ -880,6 +833,7 @@
       '<div class="av"><svg viewBox="-50 -50 100 100"><use href="#clover"></use></svg></div>' +
       '<div class="bubble md"></div>';
     div.querySelector('.bubble').innerHTML = renderMarkdown(text);
+    div._msgText = text;
     addMsgActions(div, text);
     messagesEl.appendChild(div);
   }
@@ -890,10 +844,7 @@
     actions.innerHTML =
       '<button class="msg-action" onclick="copyMsg(this)">📋 Copy</button>' +
       '<button class="msg-action" onclick="regenMsg()">🔄 Regenerate</button>';
-    const bubble = msgEl.querySelector('.bubble');
-    bubble.appendChild(actions);
-
-    // store text for copy
+    msgEl.querySelector('.bubble').appendChild(actions);
     msgEl._msgText = text;
   }
 
@@ -913,21 +864,18 @@
 
   window.regenMsg = function() {
     if (busy || !lastUserMessage) return;
-    // remove last bot message
     const msgs = currentMessages;
     for (let i = msgs.length - 1; i >= 0; i--) {
       if (msgs[i].role === 'bot') { msgs.splice(i, 1); break; }
     }
-    // remove last bot DOM element
     const botEls = messagesEl.querySelectorAll('.msg.bot');
     if (botEls.length) botEls[botEls.length - 1].remove();
-    // re-send
-    send(lastUserMessage, true);   // true = regenerate mode
+    send(lastUserMessage, true);
     showToast('🔄 Regenerating...');
   };
 
   function renderMessages() {
-    messagesEl.querySelectorAll('.msg, .regen-bar').forEach(m => m.remove());
+    messagesEl.querySelectorAll('.msg').forEach(m => m.remove());
     if (!currentMessages.length) { welcome.classList.remove('gone'); return; }
     welcome.classList.add('gone');
     for (const m of currentMessages) {
@@ -951,7 +899,6 @@
         scrollDown();
         if (i >= text.length) {
           clearInterval(timer);
-          // Render markdown when done
           el.classList.add('md');
           el.innerHTML = renderMarkdown(text);
           resolve();
@@ -960,18 +907,15 @@
     });
   }
 
-  /* ================= Export Chat ================= */
+  /* ================= Export ================= */
   document.getElementById('exportBtn').addEventListener('click', () => {
     if (!currentMessages.length) { showToast('Export လုပ်စရာ chat မရှိဘူး'); return; }
-
     let md = '# Lucky AI Chat Export 🍀\n\n';
     md += '> ' + formatDate(Date.now()) + ' · Developed by Its_PokemonZ\n\n---\n\n';
-
     for (const m of currentMessages) {
       const who = m.role === 'user' ? '👤 **You**' : '🍀 **Lucky AI**';
       md += '### ' + who + '\n\n' + m.text + '\n\n---\n\n';
     }
-
     const blob = new Blob([md], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -982,7 +926,7 @@
     showToast('📥 Chat exported!');
   });
 
-  /* ================= Send (with history + model) ================= */
+  /* ================= Send ================= */
   async function send(text, isRegen = false) {
     if (busy) return;
     text = (text || '').trim();
@@ -993,15 +937,12 @@
     sendBtn.disabled = true;
     sendBtn.classList.add('loading');
     welcome.classList.add('gone');
-
-    const model = modelSelect.value;
-    chatStatus.textContent = model + ' · thinking...';
+    chatStatus.textContent = 'thinking...';
 
     const displayText = text || ('📎 ' + attachedFiles.length + ' file(s) attached');
 
     let historySnapshot;
     if (isRegen) {
-      // regenerate: currentMessages already trimmed
       historySnapshot = currentMessages.slice();
     } else {
       historySnapshot = currentMessages.slice();
@@ -1034,14 +975,13 @@
           message: text || lastUserMessage || 'Hello',
           files: fileData,
           history: historySnapshot,
-          model: model,
         }),
-        signal: AbortSignal.timeout(300000)
+        signal: AbortSignal.timeout(120000)
       });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.response) {
-        throw new Error(data.error || ('Error: HTTP ' + res.status));
+        throw new Error(data.error || ('HTTP ' + res.status));
       }
 
       currentMessages.push({ role: 'bot', text: data.response });
@@ -1051,14 +991,14 @@
       await typewriter(botBubble, data.response);
       addMsgActions(botMsgEl, data.response);
       clearAttachments();
-      chatStatus.textContent = model + ' · online';
+      chatStatus.textContent = 'online · programming AI';
     } catch (err) {
       stopWaitTimer();
       const errText = '⚠️ ' + err.message;
       currentMessages.push({ role: 'bot', text: errText });
       persist();
       botBubble.innerHTML = '<span class="err">' + esc(errText) + '</span>';
-      chatStatus.textContent = model + ' · error';
+      chatStatus.textContent = 'error';
       scrollDown();
     } finally {
       stopWaitTimer();
@@ -1110,11 +1050,6 @@
   document.getElementById('burger').addEventListener('click', openSidebar);
   document.getElementById('sideClose').addEventListener('click', closeSidebar);
   overlay.addEventListener('click', closeSidebar);
-
-  // Model change
-  modelSelect.addEventListener('change', () => {
-    showToast('🤖 Model: ' + modelSelect.options[modelSelect.selectedIndex].text);
-  });
 
   /* ================= Init ================= */
   renderHistory();
