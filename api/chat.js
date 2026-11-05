@@ -3,25 +3,63 @@ export const maxDuration = 300;
 const MAX_HISTORY      = 20;
 const PRIMARY_TIMEOUT  = 120000;
 const FALLBACK_TIMEOUT = 60000;
-const MAX_RETRIES      = 3;
 const MAX_TOKENS       = 4096;
+const KEY_COOLDOWN_MS  = 60_000;
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-const SYSTEM_PROMPT = 'You are Lucky AI, a helpful, intelligent assistant like ChatGPT. ' +
-  'You remember the entire conversation. Use Markdown formatting: **bold**, `inline code`, ' +
-  '```code blocks```, lists, tables, and headers. Respond in the same language the user uses. ' +
-  'Be accurate, thorough, and friendly.';
+/* ═══════════════ Concise system prompt ═══════════════ */
+const SYSTEM_PROMPT = `You are Lucky AI, a helpful assistant.
 
+RESPONSE STYLE — follow strictly:
+- Be CONCISE. Answer in the shortest form that fully satisfies the request.
+- If user asks for "code" / "html" / "script" / "code" → give ONLY the code in ONE code block. No explanation, no tables, no "how it works", no "tweaking" section, no "summary". Nothing before or after except a 1-line intro if truly needed.
+- If user asks "how" / "why" / "explain" → explain briefly, max 3-5 sentences unless they explicitly ask for detail.
+- Never add tables unless the user explicitly asks to compare things.
+- Never add "How it works" / "Summary" / "Notes" / "Tips" sections unless asked.
+- Never repeat the user's question back.
+- Use Markdown only when it helps (code blocks, short lists). Skip headers for short answers.
+- Match the user's language (Burmese → Burmese, English → English).
+- If the request is ambiguous, ask one short clarifying question instead of guessing.`;
+
+/* ═══════════════ Multi-key Gemini pool ═══════════════ */
+const GEMINI_KEYS = (process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
+const keyHealth = new Map();
+let keyRR = 0;
+
+function pickGeminiKey() {
+  if (!GEMINI_KEYS.length) return null;
+  const now = Date.now();
+  for (let i = 0; i < GEMINI_KEYS.length; i++) {
+    const idx = (keyRR + i) % GEMINI_KEYS.length;
+    const k = GEMINI_KEYS[idx];
+    if ((keyHealth.get(k) || 0) < now) {
+      keyRR = (idx + 1) % GEMINI_KEYS.length;
+      return k;
+    }
+  }
+  return null;
+}
+
+function coolDown(key, ms = KEY_COOLDOWN_MS) {
+  keyHealth.set(key, Date.now() + ms);
+}
+
+function geminiPoolStats() {
+  const now = Date.now();
+  const healthy = GEMINI_KEYS.filter(k => (keyHealth.get(k) || 0) < now).length;
+  return { total: GEMINI_KEYS.length, healthy };
+}
+
+/* ═══════════════ Builders ═══════════════ */
 function buildMessages(message, history) {
   const messages = [{ role: 'system', content: SYSTEM_PROMPT }];
   if (Array.isArray(history)) {
     for (const h of history.slice(-MAX_HISTORY)) {
       if (!h.text) continue;
-      messages.push({
-        role: h.role === 'user' ? 'user' : 'assistant',
-        content: h.text,
-      });
+      messages.push({ role: h.role === 'user' ? 'user' : 'assistant', content: h.text });
     }
   }
   messages.push({ role: 'user', content: message });
@@ -30,16 +68,14 @@ function buildMessages(message, history) {
 
 function parseDataUrl(dataUrl) {
   const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl || '');
-  if (!m) return null;
-  return { mimeType: m[1], data: m[2] };
+  return m ? { mimeType: m[1], data: m[2] } : null;
 }
 
-/* ─────────────────── Gemini (Google — primary, vision-capable) ─────────────────── */
+/* ═══════════════ Gemini ═══════════════ */
 async function callGemini(messages, model, imageFiles = []) {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new Error('GEMINI_API_KEY not set');
+  if (!GEMINI_KEYS.length) throw new Error('No Gemini API keys configured');
 
-  const geminiModel = model === 'openai-fast'
+  const geminiModel = (model === 'gemini-fast' || model === 'openai-fast')
     ? 'gemini-2.0-flash-lite'
     : 'gemini-2.0-flash';
 
@@ -51,50 +87,81 @@ async function callGemini(messages, model, imageFiles = []) {
     const m = messages[i];
     if (m.role === 'system') continue;
     const parts = [{ text: m.content || '' }];
-
-    // Attach images ONLY to the current (last) user turn
     if (i === lastUserIdx && imageFiles.length > 0) {
       for (const f of imageFiles) {
         const parsed = parseDataUrl(f.content);
-        if (parsed) {
-          parts.push({
-            inline_data: { mime_type: parsed.mimeType, data: parsed.data },
-          });
-        }
+        if (parsed) parts.push({ inline_data: { mime_type: parsed.mimeType, data: parsed.data } });
       }
     }
-
-    contents.push({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts,
-    });
+    contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts });
   }
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${key}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents,
-        systemInstruction: systemMsg ? { parts: [{ text: systemMsg }] } : undefined,
-        generationConfig: { maxOutputTokens: MAX_TOKENS, temperature: 0.7 },
-      }),
-      signal: AbortSignal.timeout(PRIMARY_TIMEOUT),
+  const payload = {
+    contents,
+    systemInstruction: systemMsg ? { parts: [{ text: systemMsg }] } : undefined,
+    generationConfig: { maxOutputTokens: MAX_TOKENS, temperature: 0.7 },
+  };
+
+  const tried = new Set();
+  let lastErr = null;
+
+  while (tried.size < GEMINI_KEYS.length) {
+    const key = pickGeminiKey();
+    if (!key || tried.has(key)) break;
+    tried.add(key);
+
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${key}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(PRIMARY_TIMEOUT),
+        }
+      );
+
+      if (res.status === 429) {
+        coolDown(key, 60_000);
+        lastErr = new Error(`Rate limited (…${key.slice(-4)})`);
+        continue;
+      }
+      if (res.status === 403 || res.status === 401) {
+        coolDown(key, 300_000);
+        lastErr = new Error(`Key invalid (…${key.slice(-4)})`);
+        continue;
+      }
+
+      const data = await res.json();
+      if (data.error) {
+        coolDown(key, 60_000);
+        lastErr = new Error(data.error.message || 'Gemini error');
+        continue;
+      }
+
+      const text = (data.candidates?.[0]?.content?.parts || [])
+        .map(p => p.text).filter(Boolean).join('').trim();
+      if (text) return { text, provider: `Gemini · ${geminiModel}` };
+      lastErr = new Error('Empty Gemini response');
+    } catch (err) {
+      coolDown(key, 30_000);
+      lastErr = err;
     }
-  );
-  const data = await res.json();
-  if (data.error) throw new Error(data.error.message || 'Gemini error');
-  return (data.candidates?.[0]?.content?.parts || [])
-    .map(p => p.text).filter(Boolean).join('');
+  }
+
+  throw lastErr || new Error('All Gemini keys exhausted');
 }
 
-/* ─────────────────── Groq (Meta LLaMA/Mixtral — fast) ─────────────────── */
+/* ═══════════════ Groq ═══════════════ */
 const GROQ_MODELS = {
+  'auto':        'llama-3.3-70b-versatile',
+  'gemini':      'llama-3.3-70b-versatile',
+  'gemini-fast': 'llama-3.1-8b-instant',
   'openai':      'llama-3.3-70b-versatile',
   'openai-fast': 'llama-3.1-8b-instant',
-  'mistral':     'mixtral-8x7b-32768',
   'llama':       'llama-3.3-70b-versatile',
+  'groq':        'llama-3.3-70b-versatile',
+  'mistral':     'mixtral-8x7b-32768',
 };
 
 async function callGroq(messages, model) {
@@ -104,29 +171,23 @@ async function callGroq(messages, model) {
 
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${key}`,
-    },
-    body: JSON.stringify({
-      model: groqModel,
-      messages,
-      max_tokens: MAX_TOKENS,
-      temperature: 0.7,
-    }),
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    body: JSON.stringify({ model: groqModel, messages, max_tokens: MAX_TOKENS, temperature: 0.7 }),
     signal: AbortSignal.timeout(FALLBACK_TIMEOUT),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error.message || 'Groq error');
-  return data?.choices?.[0]?.message?.content || '';
+  const text = data?.choices?.[0]?.message?.content?.trim();
+  if (!text) throw new Error('Empty Groq response');
+  return { text, provider: `Groq · ${groqModel}` };
 }
 
-/* ─────────────────── OpenRouter (variety) ─────────────────── */
+/* ═══════════════ OpenRouter ═══════════════ */
 async function callOpenRouter(messages, model) {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error('OPENROUTER_API_KEY not set');
 
-  const orModel = model === 'mistral'
+  const orModel = (model === 'mistral')
     ? 'mistralai/mistral-7b-instruct:free'
     : 'meta-llama/llama-3.3-70b-instruct:free';
 
@@ -138,90 +199,108 @@ async function callOpenRouter(messages, model) {
       'HTTP-Referer': 'https://lucky-ai.vercel.app',
       'X-Title': 'Lucky AI',
     },
-    body: JSON.stringify({
-      model: orModel,
-      messages,
-      max_tokens: MAX_TOKENS,
-    }),
+    body: JSON.stringify({ model: orModel, messages, max_tokens: MAX_TOKENS }),
     signal: AbortSignal.timeout(FALLBACK_TIMEOUT),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error.message || 'OpenRouter error');
-  return data?.choices?.[0]?.message?.content || '';
+  const text = data?.choices?.[0]?.message?.content?.trim();
+  if (!text) throw new Error('Empty OpenRouter response');
+  return { text, provider: `OpenRouter · ${orModel.split('/').pop()}` };
 }
 
-/* ─────────────────── Pollinations (no key, last resort) ─────────────────── */
+/* ═══════════════ Pollinations ═══════════════ */
 async function callPollinations(messages, model) {
-  const pollModel = model === 'mistral' ? 'mistral'
-    : model === 'llama' ? 'llama'
+  const pollModel = (model === 'mistral') ? 'mistral'
+    : (model === 'llama' || model === 'groq') ? 'llama'
     : 'openai';
 
   const res = await fetch('https://text.pollinations.ai/openai', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: pollModel,
-      messages,
-      max_tokens: MAX_TOKENS,
-    }),
+    body: JSON.stringify({ model: pollModel, messages, max_tokens: MAX_TOKENS }),
     signal: AbortSignal.timeout(FALLBACK_TIMEOUT),
   });
   const data = await res.json();
-  return data?.choices?.[0]?.message?.content || '';
+  const text = data?.choices?.[0]?.message?.content?.trim();
+  if (!text) throw new Error('Empty Pollinations response');
+  return { text, provider: `Pollinations · ${pollModel}` };
 }
 
-/* ─────────────────── Orchestrator with model-aware routing ─────────────────── */
-async function callAI(messages, model, imageFiles) {
-  const chain = [];
+/* ═══════════════ Provider chain ═══════════════ */
+function buildChain(model, messages, imageFiles) {
+  const hasGemini = GEMINI_KEYS.length > 0;
+  const hasGroq   = !!process.env.GROQ_API_KEY;
+  const hasOR     = !!process.env.OPENROUTER_API_KEY;
 
-  if (model === 'mistral') {
-    chain.push(
-      { name: 'Groq (Mixtral)',        fn: () => callGroq(messages, model) },
-      { name: 'OpenRouter (Mistral)',  fn: () => callOpenRouter(messages, model) },
-      { name: 'Pollinations (Mistral)', fn: () => callPollinations(messages, model) },
-    );
-  } else if (model === 'llama') {
-    chain.push(
-      { name: 'Groq (LLaMA 3.3)',      fn: () => callGroq(messages, model) },
-      { name: 'OpenRouter (LLaMA)',    fn: () => callOpenRouter(messages, model) },
-      { name: 'Pollinations (LLaMA)', fn: () => callPollinations(messages, model) },
-    );
-  } else if (model === 'openai-fast') {
-    chain.push(
-      { name: 'Gemini Flash-Lite', fn: () => callGemini(messages, model, imageFiles) },
-      { name: 'Groq (8B instant)', fn: () => callGroq(messages, model) },
-      { name: 'Pollinations',      fn: () => callPollinations(messages, model) },
-    );
-  } else {
-    // 'openai' (Smart)
-    chain.push(
-      { name: 'Gemini 2.0 Flash',  fn: () => callGemini(messages, model, imageFiles) },
-      { name: 'Groq (LLaMA 3.3)', fn: () => callGroq(messages, model) },
-      { name: 'OpenRouter',       fn: () => callOpenRouter(messages, model) },
-      { name: 'Pollinations',     fn: () => callPollinations(messages, model) },
-    );
+  const G  = () => ({ name: 'Gemini',       fn: () => callGemini(messages, model, imageFiles) });
+  const GR = (m = model) => ({ name: 'Groq', fn: () => callGroq(messages, m) });
+  const OR = (m = model) => ({ name: 'OpenRouter', fn: () => callOpenRouter(messages, m) });
+  const P  = (m = model) => ({ name: 'Pollinations', fn: () => callPollinations(messages, m) });
+
+  if (model === 'auto') {
+    const chain = [];
+    if (hasGemini) chain.push(G());
+    if (hasGroq)   chain.push(GR('llama'));
+    if (hasOR)     chain.push(OR('llama'));
+    chain.push(P('openai'));
+    return chain;
   }
 
+  if (model === 'mistral') {
+    const chain = [];
+    if (hasGroq) chain.push(GR('mistral'));
+    if (hasOR)   chain.push(OR('mistral'));
+    chain.push(P('mistral'));
+    return chain;
+  }
+
+  if (model === 'llama' || model === 'groq') {
+    const chain = [];
+    if (hasGroq) chain.push(GR('llama'));
+    if (hasOR)   chain.push(OR('llama'));
+    chain.push(P('llama'));
+    return chain;
+  }
+
+  if (model === 'gemini-fast' || model === 'openai-fast') {
+    const chain = [];
+    if (hasGemini) chain.push(G());
+    if (hasGroq)   chain.push(GR('openai-fast'));
+    chain.push(P('openai'));
+    return chain;
+  }
+
+  const chain = [];
+  if (hasGemini) chain.push(G());
+  if (hasGroq)   chain.push(GR('openai'));
+  if (hasOR)     chain.push(OR('openai'));
+  chain.push(P('openai'));
+  return chain;
+}
+
+/* ═══════════════ Orchestrator ═══════════════ */
+async function callAI(messages, model, imageFiles) {
+  const chain = buildChain(model, messages, imageFiles);
   const errors = [];
+
   for (const p of chain) {
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        const text = await p.fn();
-        if (text && text.trim()) {
-          return { text: text.trim(), provider: p.name };
-        }
+        const out = await p.fn();
+        if (out?.text) return out;
       } catch (err) {
         errors.push(`[${p.name}] ${err?.message}`);
         console.log(`[${p.name}] attempt ${attempt}: ${err?.message}`);
       }
-      if (attempt < MAX_RETRIES) await sleep(1500 * attempt);
+      if (attempt < 2) await sleep(1000 * attempt);
     }
   }
   console.error('All providers failed:', errors);
   return null;
 }
 
-/* ─────────────────── Handler ─────────────────── */
+/* ═══════════════ Handler ═══════════════ */
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -232,18 +311,18 @@ export default async function handler(req, res) {
   const message = (body.message ?? '').toString().trim();
   const files   = Array.isArray(body.files)   ? body.files   : [];
   const history = Array.isArray(body.history) ? body.history : [];
-  const model   = (body.model ?? 'openai').toString();
+  const model   = (body.model ?? 'auto').toString();
 
-  // Health check (GET with no message)
   if (req.method === 'GET' && !message && files.length === 0) {
     return res.status(200).json({
       status: 'ok',
       providers: {
-        gemini:       !!process.env.GEMINI_API_KEY,
+        gemini:       geminiPoolStats(),
         groq:         !!process.env.GROQ_API_KEY,
         openrouter:   !!process.env.OPENROUTER_API_KEY,
         pollinations: true,
       },
+      defaultModel: 'auto',
     });
   }
 
@@ -262,23 +341,17 @@ export default async function handler(req, res) {
       : f.content;
     fullText += `\n\n--- 📄 ${f.name} ---\n${content}\n--- End of ${f.name} ---`;
   }
-
   if (imageFiles.length) {
-    fullText += `\n\n[${imageFiles.length} image(s) attached: ${imageFiles.map(i => i.name).join(', ')}]`;
+    fullText += `\n\n[${imageFiles.length} image(s): ${imageFiles.map(i => i.name).join(', ')}]`;
   }
-
-  if (fullText.length > 30000) {
-    fullText = fullText.slice(0, 30000) + '\n... [truncated]';
-  }
+  if (fullText.length > 30000) fullText = fullText.slice(0, 30000) + '\n... [truncated]';
 
   const messages = buildMessages(fullText, history);
 
   try {
     const result = await callAI(messages, model, imageFiles);
     if (!result) {
-      return res.status(502).json({
-        error: 'AI response မရပါ — API keys စစ်ဆေးပြီး ထပ်ကြိုးစားပါ',
-      });
+      return res.status(502).json({ error: 'AI response မရပါ — API keys စစ်ပါ / ခဏစောင့်ပါ' });
     }
     res.status(200).json({
       message,
