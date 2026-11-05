@@ -1,252 +1,295 @@
 export const maxDuration = 300;
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+const MAX_HISTORY      = 20;
+const PRIMARY_TIMEOUT  = 120000;
+const FALLBACK_TIMEOUT = 60000;
+const MAX_RETRIES      = 3;
+const MAX_TOKENS       = 4096;
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+const SYSTEM_PROMPT = 'You are Lucky AI, a helpful, intelligent assistant like ChatGPT. ' +
+  'You remember the entire conversation. Use Markdown formatting: **bold**, `inline code`, ' +
+  '```code blocks```, lists, tables, and headers. Respond in the same language the user uses. ' +
+  'Be accurate, thorough, and friendly.';
 
 function buildMessages(message, history) {
-  const messages = [{
-    role: 'system',
-    content: `You are Lucky AI, an expert programming assistant.
-
-CRITICAL RULES:
-1. ALWAYS write COMPLETE code from beginning to end. NEVER truncate.
-2. Wrap ALL code in markdown blocks with language tag:
-\`\`\`python
-complete code here
-\`\`\`
-3. Use Markdown: **bold**, \`inline\`, lists, tables, headers.
-4. Respond in the user's language (Myanmar or English).
-5. After code, give a short explanation.`
-  }];
-
-  if (Array.isArray(history) && history.length > 0) {
-    for (const h of history.slice(-20)) {
-      if (h.role === 'user' && h.text)
-        messages.push({ role: 'user', content: h.text });
-      else if (h.role === 'bot' && h.text)
-        messages.push({ role: 'assistant', content: h.text });
+  const messages = [{ role: 'system', content: SYSTEM_PROMPT }];
+  if (Array.isArray(history)) {
+    for (const h of history.slice(-MAX_HISTORY)) {
+      if (!h.text) continue;
+      messages.push({
+        role: h.role === 'user' ? 'user' : 'assistant',
+        content: h.text,
+      });
     }
   }
-
   messages.push({ role: 'user', content: message });
   return messages;
 }
 
-function extractText(data) {
-  if (typeof data === 'string') return data;
-  if (Array.isArray(data)) return data[0]?.generated_text || data[0]?.text || '';
-  return data?.choices?.[0]?.message?.content
-      || data?.response
-      || data?.text
-      || data?.generated_text
-      || '';
+function parseDataUrl(dataUrl) {
+  const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl || '');
+  if (!m) return null;
+  return { mimeType: m[1], data: m[2] };
 }
 
-function isTruncated(text) {
-  if (!text || text.length < 50) return true;
-  const fences = (text.match(/```/g) || []).length;
-  if (fences % 2 !== 0) return true;
-  const end = text.trim().slice(-60).toLowerCase();
-  return ['...','…','rest of','continue','omitted','truncated','remaining']
-    .some(b => end.includes(b));
-}
+/* ─────────────────── Gemini (Google — primary, vision-capable) ─────────────────── */
+async function callGemini(messages, model, imageFiles = []) {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error('GEMINI_API_KEY not set');
 
-// ─── Provider 1: Puter.js (free, no key, generous) ───
-async function tryPuter(messages) {
-  const prompt = messages
-    .filter(m => m.role !== 'system')
-    .map(m => (m.role === 'user' ? 'User: ' : 'Assistant: ') + m.content)
-    .join('\n');
+  const geminiModel = model === 'openai-fast'
+    ? 'gemini-2.0-flash-lite'
+    : 'gemini-2.0-flash';
 
-  const res = await fetch('https://api.puter.com/v1/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages,
-    }),
-    signal: AbortSignal.timeout(60000),
-  });
+  const systemMsg = messages.find(m => m.role === 'system')?.content || '';
+  const lastUserIdx = messages.map(m => m.role).lastIndexOf('user');
+  const contents = [];
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  const text = extractText(data);
-  if (!text) throw new Error('Empty');
-  return text;
-}
-
-// ─── Provider 2: HuggingFace Inference (free tier) ───
-async function tryHuggingFace(messages) {
-  const token = process.env.HF_TOKEN;
-  if (!token) throw new Error('No HF_TOKEN');
-
-  let prompt = '';
-  for (const m of messages) {
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
     if (m.role === 'system') continue;
-    prompt += (m.role === 'user' ? '[INST] ' : '</s>[INST] ') + m.content;
+    const parts = [{ text: m.content || '' }];
+
+    // Attach images ONLY to the current (last) user turn
+    if (i === lastUserIdx && imageFiles.length > 0) {
+      for (const f of imageFiles) {
+        const parsed = parseDataUrl(f.content);
+        if (parsed) {
+          parts.push({
+            inline_data: { mime_type: parsed.mimeType, data: parsed.data },
+          });
+        }
+      }
+    }
+
+    contents.push({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts,
+    });
   }
-  prompt += '</s>';
 
   const res = await fetch(
-    'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3',
+    `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${key}`,
     {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        inputs: prompt,
-        parameters: { max_new_tokens: 2048, return_full_text: false },
+        contents,
+        systemInstruction: systemMsg ? { parts: [{ text: systemMsg }] } : undefined,
+        generationConfig: { maxOutputTokens: MAX_TOKENS, temperature: 0.7 },
       }),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(PRIMARY_TIMEOUT),
     }
   );
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
-  const text = extractText(data);
-  if (!text) throw new Error('Empty');
-  return text;
+  if (data.error) throw new Error(data.error.message || 'Gemini error');
+  return (data.candidates?.[0]?.content?.parts || [])
+    .map(p => p.text).filter(Boolean).join('');
 }
 
-// ─── Provider 3: Groq (free, fast — need free key) ───
-async function tryGroq(messages) {
-  const token = process.env.GROQ_API_KEY;
-  if (!token) throw new Error('No GROQ_API_KEY');
+/* ─────────────────── Groq (Meta LLaMA/Mixtral — fast) ─────────────────── */
+const GROQ_MODELS = {
+  'openai':      'llama-3.3-70b-versatile',
+  'openai-fast': 'llama-3.1-8b-instant',
+  'mistral':     'mixtral-8x7b-32768',
+  'llama':       'llama-3.3-70b-versatile',
+};
+
+async function callGroq(messages, model) {
+  const key = process.env.GROQ_API_KEY;
+  if (!key) throw new Error('GROQ_API_KEY not set');
+  const groqModel = GROQ_MODELS[model] || 'llama-3.3-70b-versatile';
 
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + token,
+      'Authorization': `Bearer ${key}`,
     },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
+      model: groqModel,
       messages,
-      max_tokens: 4096,
+      max_tokens: MAX_TOKENS,
+      temperature: 0.7,
     }),
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(FALLBACK_TIMEOUT),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
-  const text = extractText(data);
-  if (!text) throw new Error('Empty');
-  return text;
+  if (data.error) throw new Error(data.error.message || 'Groq error');
+  return data?.choices?.[0]?.message?.content || '';
 }
 
-// ─── Provider 4: Pollinations (last resort, 45s rate limit) ───
-async function tryPollinations(messages) {
+/* ─────────────────── OpenRouter (variety) ─────────────────── */
+async function callOpenRouter(messages, model) {
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key) throw new Error('OPENROUTER_API_KEY not set');
+
+  const orModel = model === 'mistral'
+    ? 'mistralai/mistral-7b-instruct:free'
+    : 'meta-llama/llama-3.3-70b-instruct:free';
+
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${key}`,
+      'HTTP-Referer': 'https://lucky-ai.vercel.app',
+      'X-Title': 'Lucky AI',
+    },
+    body: JSON.stringify({
+      model: orModel,
+      messages,
+      max_tokens: MAX_TOKENS,
+    }),
+    signal: AbortSignal.timeout(FALLBACK_TIMEOUT),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message || 'OpenRouter error');
+  return data?.choices?.[0]?.message?.content || '';
+}
+
+/* ─────────────────── Pollinations (no key, last resort) ─────────────────── */
+async function callPollinations(messages, model) {
+  const pollModel = model === 'mistral' ? 'mistral'
+    : model === 'llama' ? 'llama'
+    : 'openai';
+
   const res = await fetch('https://text.pollinations.ai/openai', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'openai',
+      model: pollModel,
       messages,
-      max_tokens: 4096,
+      max_tokens: MAX_TOKENS,
     }),
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(FALLBACK_TIMEOUT),
   });
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status}: ${body.slice(0, 150)}`);
-  }
   const data = await res.json();
-  const text = extractText(data);
-  if (!text) throw new Error('Empty');
-  return text;
+  return data?.choices?.[0]?.message?.content || '';
 }
 
-async function callAI(messages) {
-  const providers = [
-    { name: 'Puter',       fn: () => tryPuter(messages) },
-    { name: 'Groq',        fn: () => tryGroq(messages) },
-    { name: 'HuggingFace', fn: () => tryHuggingFace(messages) },
-    { name: 'Pollinations',fn: () => tryPollinations(messages) },
-  ];
+/* ─────────────────── Orchestrator with model-aware routing ─────────────────── */
+async function callAI(messages, model, imageFiles) {
+  const chain = [];
+
+  if (model === 'mistral') {
+    chain.push(
+      { name: 'Groq (Mixtral)',        fn: () => callGroq(messages, model) },
+      { name: 'OpenRouter (Mistral)',  fn: () => callOpenRouter(messages, model) },
+      { name: 'Pollinations (Mistral)', fn: () => callPollinations(messages, model) },
+    );
+  } else if (model === 'llama') {
+    chain.push(
+      { name: 'Groq (LLaMA 3.3)',      fn: () => callGroq(messages, model) },
+      { name: 'OpenRouter (LLaMA)',    fn: () => callOpenRouter(messages, model) },
+      { name: 'Pollinations (LLaMA)', fn: () => callPollinations(messages, model) },
+    );
+  } else if (model === 'openai-fast') {
+    chain.push(
+      { name: 'Gemini Flash-Lite', fn: () => callGemini(messages, model, imageFiles) },
+      { name: 'Groq (8B instant)', fn: () => callGroq(messages, model) },
+      { name: 'Pollinations',      fn: () => callPollinations(messages, model) },
+    );
+  } else {
+    // 'openai' (Smart)
+    chain.push(
+      { name: 'Gemini 2.0 Flash',  fn: () => callGemini(messages, model, imageFiles) },
+      { name: 'Groq (LLaMA 3.3)', fn: () => callGroq(messages, model) },
+      { name: 'OpenRouter',       fn: () => callOpenRouter(messages, model) },
+      { name: 'Pollinations',     fn: () => callPollinations(messages, model) },
+    );
+  }
 
   const errors = [];
-
-  for (const p of providers) {
-    for (let attempt = 1; attempt <= 2; attempt++) {
+  for (const p of chain) {
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        console.log(`[${p.name}] attempt ${attempt}`);
         const text = await p.fn();
-        if (text && !isTruncated(text)) return text;
-        if (text && attempt >= 2) return text;  // accept if last attempt
-        if (text) {
-          // truncated → retry this provider once more
-          await sleep(1500);
-          continue;
+        if (text && text.trim()) {
+          return { text: text.trim(), provider: p.name };
         }
       } catch (err) {
-        const msg = `[${p.name}] attempt ${attempt}: ${err.message}`;
-        console.log(msg);
-        errors.push(msg);
-        if (err.message.includes('402') || err.message.includes('FREE_LIMIT')) {
-          // rate limited → skip this provider immediately
-          break;
-        }
+        errors.push(`[${p.name}] ${err?.message}`);
+        console.log(`[${p.name}] attempt ${attempt}: ${err?.message}`);
       }
-      await sleep(1000 * attempt);
+      if (attempt < MAX_RETRIES) await sleep(1500 * attempt);
     }
   }
-
-  throw new Error('All providers failed: ' + errors.slice(-3).join(' | '));
+  console.error('All providers failed:', errors);
+  return null;
 }
 
+/* ─────────────────── Handler ─────────────────── */
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') { res.status(204).end(); return; }
+  if (req.method === 'OPTIONS') return res.status(204).end();
 
   const body    = req.method === 'POST' ? (req.body || {}) : (req.query || {});
   const message = (body.message ?? '').toString().trim();
-  const files   = Array.isArray(body.files) ? body.files : [];
+  const files   = Array.isArray(body.files)   ? body.files   : [];
   const history = Array.isArray(body.history) ? body.history : [];
+  const model   = (body.model ?? 'openai').toString();
+
+  // Health check (GET with no message)
+  if (req.method === 'GET' && !message && files.length === 0) {
+    return res.status(200).json({
+      status: 'ok',
+      providers: {
+        gemini:       !!process.env.GEMINI_API_KEY,
+        groq:         !!process.env.GROQ_API_KEY,
+        openrouter:   !!process.env.OPENROUTER_API_KEY,
+        pollinations: true,
+      },
+    });
+  }
 
   if (!message && files.length === 0) {
-    res.status(400).json({ error: 'message လိုအပ်ပါတယ်' });
-    return;
+    return res.status(400).json({ error: 'message လိုအပ်ပါတယ်' });
   }
 
   let fullText = message || 'Please analyze the attached file(s).';
+  const textFiles  = files.filter(f => f.type === 'text');
+  const imageFiles = files.filter(f => f.type === 'image');
 
-  for (const f of files.filter(f => f.type === 'text')) {
-    const content = f.content.length > 8000
-      ? f.content.slice(0, 8000) + '\n...[truncated]'
+  for (const f of textFiles) {
+    const MAX_PER_FILE = 8000;
+    const content = f.content.length > MAX_PER_FILE
+      ? f.content.slice(0, MAX_PER_FILE) + '\n... [truncated]'
       : f.content;
-    fullText += `\n\n--- 📄 ${f.name} ---\n${content}\n--- End ---`;
+    fullText += `\n\n--- 📄 ${f.name} ---\n${content}\n--- End of ${f.name} ---`;
   }
 
-  const imgFiles = files.filter(f => f.type === 'image');
-  if (imgFiles.length) {
-    fullText += `\n\n[${imgFiles.length} image(s): ${imgFiles.map(i => i.name).join(', ')}]`;
+  if (imageFiles.length) {
+    fullText += `\n\n[${imageFiles.length} image(s) attached: ${imageFiles.map(i => i.name).join(', ')}]`;
   }
 
   if (fullText.length > 30000) {
-    fullText = fullText.slice(0, 30000) + '\n...[truncated]';
+    fullText = fullText.slice(0, 30000) + '\n... [truncated]';
   }
 
+  const messages = buildMessages(fullText, history);
+
   try {
-    const messages = buildMessages(fullText, history);
-    const text = await callAI(messages);
-
-    if (!text) {
-      res.status(502).json({ error: 'AI response မရပါ — ခဏစောင့်ပြီး ထပ်ကြိုးစားပါ' });
-      return;
+    const result = await callAI(messages, model, imageFiles);
+    if (!result) {
+      return res.status(502).json({
+        error: 'AI response မရပါ — API keys စစ်ဆေးပြီး ထပ်ကြိုးစားပါ',
+      });
     }
-
     res.status(200).json({
-      'by -> ': '@aantik_mods',
       message,
-      response: text,
+      response: result.text,
+      provider: result.provider,
+      model,
       hasFiles: files.length > 0,
+      imagesProcessed: imageFiles.length,
+      historySize: history.length,
     });
   } catch (err) {
-    res.status(500).json({
-      error: err?.message?.includes('timeout') || err?.name === 'TimeoutError'
-        ? 'Response ကြာလွန်းပါတယ် — ထပ်ကြိုးစားပါ'
-        : (err?.message || 'Server error — ထပ်ကြိုးစားပါ'),
-    });
+    res.status(500).json({ error: err?.message || 'Server error' });
   }
 }
