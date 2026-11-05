@@ -1084,7 +1084,7 @@
   });
 
   /* ================= Health check ================= */
-  fetch('chat').then(r => r.json()).then(h => {
+  fetch('/api/chat').then(r => r.json()).then(h => {
     if (h.status === 'ok') {
       const g = h.providers.gemini;
       if (g && g.total === 0) {
